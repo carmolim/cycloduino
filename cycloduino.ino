@@ -31,7 +31,7 @@
  - descobrir o valor correto da multiplicacao para kilometros por hora
  - verificar se a contagem de segundos esta certa
  - verificar se os calculos para velocidade media utilizando os segundos estao certos
-  - qual velocidade media esta certa? a com o tempo ou a com o nmero de rotacoes? arrumar o velocimetro pra testar
+ - qual velocidade media esta certa? a com o tempo ou a com o nmero de rotacoes? arrumar o velocimetro pra testar
  
  
  CADENCE
@@ -302,7 +302,13 @@ void displayCadence()
   Serial.print(cadenceNumberSamples);
   Serial.print(" | ");
   
+  /*
   Serial.print("avg rpm: ");
+  Serial.print(avgCadence);
+  Serial.print(" | ");
+  */
+  
+  Serial.print("Avg Cadence Mov: ");
   Serial.print(avgCadence);
   Serial.print(" | ");
 }
@@ -327,25 +333,20 @@ void loop()
   
   // AVERAGE SPEED  
   speedSamplesSum += kph;                                   // add the new calculate kph                                     
-  avgSpeed = speedSamplesSum/(float)speedNumberSamples;     // calculate average speed
+  avgSpeed = speedSamplesSum/(float)movingTime;     // calculate average speed
   
   // AVERAGE CADENCE  
   cadenceSamplesSum += cadence;                                    // add the new calculate cadence
-  avgCadence = cadenceSamplesSum/(float)cadenceNumberSamples;      // calculate average cadence
+  avgCadence = cadenceSamplesSum/(float)movingTime;      // calculate average cadence
 
   // RIDE DISTANCE
   distance = circumference * (float)speedNumberSamples / 100000;     // calculate distance in Km  
   
-  
-  Serial.print("Avg Speed Mov: ");
-  Serial.print(speedSamplesSum/(float)movingTime);
-  Serial.print(" | ");
-  
-   Serial.print("Avg Speed Mov Total: ");
+  Serial.print("Avg Speed Mov Total: ");
   Serial.print(speedSamplesSum/(float)rideTime);
   Serial.print(" | ");
   
-    Serial.print("Avg Speed: ");
+  Serial.print("Avg Speed Mov: ");
   Serial.print(avgSpeed);
   Serial.print(" | ");
   
