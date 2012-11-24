@@ -1,6 +1,6 @@
-//arduino bike speedometer w serial.print()
-//by Amanda Ghassaei 2012
-//http://www.instructables.com/id/Arduino-Bike-Speedometer/
+// cycloduino - ciclocomputer bike speedometer
+// Augusto Carmo (carmolim) 2012 - https://github.com/carmolim/cycloduino
+// Inspired on the work of Amanda Ghassae - http://www.instructables.com/id/Arduino-Bike-Speedometer/
 
 /*
  * This program is free software; you can redistribute it and/or modify
@@ -9,103 +9,78 @@
  * (at your option) any later version.
  *
  */
- 
- 
- 
- /*
+
+
+/*
  TODO
  
- QUESTIONS
- /////////////////
- 
- como fazer uma contagem precisa das passadas? para contar quantas passadas o ima deu?
- se a roda esta muito devagar ele contas muitas vezes...
- como o timer funciona???
  
  SPEED
  /////////////////
  
- OK - como fazer para medir a distancia total
- OK - como fazer para pegar a velocidade media (v = d/t) -> pegar o tempo total desde o inicio do programa
- - entender melhor o codigo da velocidade
- - descobrir o valor correto da multiplicacao para kilometros por hora
- - verificar se a contagem de segundos esta certa
- - verificar se os calculos para velocidade media utilizando os segundos estao certos
- - qual velocidade media esta certa? a com o tempo ou a com o nmero de rotacoes? arrumar o velocimetro pra testar
+ OK - current speed
+ OK - average speed  
+ OK - top speed
  
- 
+  
  CADENCE
  ////////////////
  
- OK - como fazer a media da cadencia
- OK - cadencia maxima
- OK - media da cadencia
-  - porque a media esta ficando errada? ela esta maior do que a cadencia atual
-  
-  
- LOG
- ////
- 
- - montar o SETUP com o shield do SD
- - testar a gravacao do LOG
- 
+ OK - how to calculate cadence
+ OK - max cadence
+ OK - average cadenc
  
  */
 
-#define speedReed   A0 // speed reed switch
-#define cadenceReed A1 // cadencex reed switch
+
+#define speedReed         A0         // speed reed switch
+#define cadenceReed       A1         // cadence reed switch
 
 
 // TOTAL MEASURES
 /////////////////
-float odometer;                    // total distante
-int maxReedCounter = 300;          // min time (in ms) of one rotation (for debouncing)
+float odometer            = 0;       // total distante
+int maxReedCounter        = 300;     // min time (in ms) of one rotation (for debouncing)
 
 
 // PER RIDE
 ///////////
 
-boolean rideStarted       = false;
-boolean moving            = false;
-long rideTime             = 0;                    // total time of the ride
-long movingTime           = 0;                    // only the moving time
-float distance            = 0.00;                 // total distance of the ride in Km
+boolean rideStarted       = false;    // if the bike is moving = true
+boolean moving            = false;    // if the bike is moving = true
+long rideTime             = 0;        // total time of the ride
+long movingTime           = 0;        // only the moving time
+float distance            = 0.00;     // total distance of the ride in Km
 
 
 // SPEED VARIBALES
 
-long speedTimer = 0;                // time between one full rotation (in ms)
-long speedSamplesSum = 0;           // sum of all the speeds collected
-long speedNumberSamples = 0;        // total of revolutions made by the front wheel
-float circumference;                // lenght of the tire
-float kph = 0.00;                   // speed in kph
-float mph = 0.00;                   // speed in mph
-float topSpeed;                     // top speed of the ride
-float avgSpeed;                     // average speed of the ride
-int speedReedVal;                   // ?? stores if the switch is open or closed // change to boolean?
-int speedReedCounter;               // ??
+long speedTimer           = 0;        // time between one full rotation (in ms)
+long speedSamplesSum      = 0;        // sum of all the speeds collected
+long speedNumberSamples   = 0;        // total of revolutions made by the front wheel
+float circumference       = 210;      // lenght of the tire
+float kph                 = 0.00;     // speed in kph
+float mph                 = 0.00;     // speed in mph
+float topSpeed            = 0;        // top speed of the ride
+float avgSpeed            = 0;        // average speed of the ride
+int speedReedVal          = 0;        // ?? stores if the switch is open or closed // change to boolean?
+int speedReedCounter      = 0;        // ??
 
 // CADENCE VARIABLES
 
-long cadenceTimer = 0;              // time between one full rotation (in ms)
-long cadenceSamplesSum = 0;         // sum of all the speeds collected
-long cadenceNumberSamples = 0;      // total of revolutions made by the front wheel
-float cadence = 0.00;               // actual cadence
-float avgCadence;                   // average cadence of the ride
-float topCadence;                   // top cadence fo the ride
-int cadenceReedVal;                 // stores if the switch is open or closed // change to boolean?
-int cadenceReedCounter;             // ??
-
-/*
-In cycling, cadence is the number of revolutions of the crank per minute;
- */
+long cadenceTimer         = 0;        // time between one full rotation (in ms)
+long cadenceSamplesSum    = 0;        // sum of all the speeds collected
+long cadenceNumberSamples = 0;        // total of revolutions made by the front wheel
+float cadence             = 0.00;     // actual cadence
+float avgCadence          = 0;        // average cadence of the ride
+float topCadence          = 0;        // top cadence fo the ride
+int cadenceReedVal        = 0;        // stores if the switch is open or closed // change to boolean?
+int cadenceReedCounter    = 0;        // ??
 
 
 void setup()
 {
-
   speedReedCounter = maxReedCounter;
-  circumference = 210 ; // comprimento da circunferenciaem cm;
 
   pinMode(speedReed, INPUT);            // speed input
   pinMode(cadenceReed, INPUT);          // cadence ipunt
@@ -138,16 +113,17 @@ void setup()
   //END TIMER SETUP
 
   Serial.begin(9600);
-}
+
+}// setup end
 
 
 ISR(TIMER1_COMPA_vect)
 {// Interrupt at freq of 1kHz to measure reed switch
 
+  //SPEED
 
-//SPEED
-
-  speedReedVal = digitalRead(speedReed);//get val of A0
+  // get val of A0
+  speedReedVal = digitalRead(speedReed);
 
   if (speedReedVal)
   {
@@ -158,21 +134,21 @@ ISR(TIMER1_COMPA_vect)
       //min time between pulses has passed
       kph = (37.76*float(circumference))/float(speedTimer); //calculate kilometers per hour why 37.76?
 
-        // reset speedTimer      
+      // reset speedTimer      
       speedTimer = 0;
 
       //reset speedReedCounter
       speedReedCounter = maxReedCounter;
-      
+
       // increase number of samples by 1 - number of wheel rotations ajust the debouncer??
       speedNumberSamples++;  
-      
+
       // starts the timer
       rideStarted = true;
-      
+
       // the wheel is spinning
       moving = true;
-      
+
     }
 
     else
@@ -197,7 +173,7 @@ ISR(TIMER1_COMPA_vect)
   {
     // if no new pulses from reed switch- tire is still, set kmh to 0
     kph = 0; 
-    
+
     // the bike is not moving
     moving = false;
   }
@@ -212,8 +188,8 @@ ISR(TIMER1_COMPA_vect)
   {
     topSpeed = kph;
   }    
-  
-   // CADENCE
+
+  // CADENCE
   /////////////
 
 
@@ -234,7 +210,7 @@ ISR(TIMER1_COMPA_vect)
 
       // reset reedCounter
       cadenceReedCounter = maxReedCounter;
-      
+
       // increase number of samples by 1      
       cadenceNumberSamples++;                                   
     }
@@ -248,7 +224,7 @@ ISR(TIMER1_COMPA_vect)
       }
     }
   }
-  
+
   // if reed switch is open
   else
   {
@@ -284,33 +260,42 @@ void displayKMH()
   Serial.print(kph);
   Serial.print(" km/h");
   Serial.print(" | ");
-/*
-  Serial.print("Top Speed ");
-  Serial.print(topSpeed);
+
+  Serial.print("Avg Speed Mov: ");
+  Serial.print(avgSpeed);
   Serial.print(" | ");
-  */
+
+  Serial.print("Avg Speed Mov Total: ");
+  Serial.print(speedSamplesSum/(float)rideTime);
+  Serial.print(" | ");
+
+  /*
+  Serial.print("Top Speed ");
+   Serial.print(topSpeed);
+   Serial.print(" | ");
+   */
 }
 
 
 void displayCadence()
 {
-   Serial.print("Cadence: ");
+  Serial.print("Cadence: ");
   Serial.print(cadence);
-  Serial.print(" | "); //Serial.println();
-  
-  Serial.print("rotacoesP: ");
-  Serial.print(cadenceNumberSamples);
   Serial.print(" | ");
-  
-  /*
-  Serial.print("avg rpm: ");
-  Serial.print(avgCadence);
-  Serial.print(" | ");
-  */
-  
+
   Serial.print("Avg Cadence Mov: ");
   Serial.print(avgCadence);
   Serial.print(" | ");
+
+  Serial.print("Top Cadence: ");
+  Serial.print(topCadence);
+  Serial.print(" | ");
+
+  Serial.print("rotations C: ");
+  Serial.print(cadenceNumberSamples);
+  Serial.print(" | ");
+
+
 }
 
 void loop()
@@ -318,77 +303,69 @@ void loop()
   //print kph once a second
   displayKMH();
   displayCadence();
-  
+
   //
   if(rideStarted)
   {
     rideTime++;
   }
-  
+
+  //
   if(moving)
   {
     movingTime++;
   }
-  
-  
+
+
   // AVERAGE SPEED  
-  speedSamplesSum += kph;                                   // add the new calculate kph                                     
-  avgSpeed = speedSamplesSum/(float)movingTime;     // calculate average speed
-  
+  speedSamplesSum += kph;                                // add the new calculate kph                                     
+  avgSpeed = speedSamplesSum/(float)movingTime;          // calculate average speed
+
   // AVERAGE CADENCE  
-  cadenceSamplesSum += cadence;                                    // add the new calculate cadence
+  cadenceSamplesSum += cadence;                          // add the new calculate cadence
   avgCadence = cadenceSamplesSum/(float)movingTime;      // calculate average cadence
 
-  // RIDE DISTANCE
+    // RIDE DISTANCE
   distance = circumference * (float)speedNumberSamples / 100000;     // calculate distance in Km  
-  
-  Serial.print("Avg Speed Mov Total: ");
-  Serial.print(speedSamplesSum/(float)rideTime);
-  Serial.print(" | ");
-  
-  Serial.print("Avg Speed Mov: ");
-  Serial.print(avgSpeed);
-  Serial.print(" | ");
-  
+
+
   Serial.print("Distance: ");
   Serial.print(distance);
   Serial.print(" | ");
-  
-  Serial.print("rotacoes: ");
+
+  Serial.print("rotations S: ");
   Serial.print(speedNumberSamples);
   Serial.print(" | ");
-  
+
   Serial.print("movingTime: ");
   Serial.print(movingTime);
   Serial.print(" | ");
-  
-    Serial.print("total time: ");
+
+  Serial.print("total time: ");
   Serial.print(rideTime);
   Serial.print(" | ");
 
-  
+
   /*
   Serial.print("speedReedCounter: ");
-  Serial.print(speedReedCounter);
-  Serial.print(" | ");
+   Serial.print(speedReedCounter);
+   Serial.print(" | ");
+   
+   Serial.print("speedReedVal: ");
+   Serial.print(speedReedVal);
+   Serial.print(" | ");
+   
+   Serial.print("speedTimer: ");
+   Serial.print(speedTimer);
+   Serial.print(" | ");
+   */
 
-  Serial.print("speedReedVal: ");
-  Serial.print(speedReedVal);
-  Serial.print(" | ");
-
-  Serial.print("speedTimer: ");
-  Serial.print(speedTimer);
-  Serial.print(" | ");
-  
-  Serial.print("circumference: ");
-  Serial.print(circumference);
-  Serial.print(" | ");
-  */
-  
   Serial.println();
-  
-  delay(1000);  
-}
+
+  delay(1000); 
+
+}// end of loop
+
 
 
 
