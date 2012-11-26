@@ -2,7 +2,7 @@
 // Augusto Carmo (carmolim) 2012 - https://github.com/carmolim/cycloduino
 // Inspired on the work of Amanda Ghassae - http://www.instructables.com/id/Arduino-Bike-Speedometer/
 
-// TEMP - http://bildr.org/2011/07/ds18b20-arduino/
+// TEMP CODE FROM: http://bildr.org/2011/07/ds18b20-arduino/
 
 /*
  * This program is free software; you can redistribute it and/or modify
@@ -15,7 +15,11 @@
 
 /*
  TODO
+
+ LOG
+ /////////////////
  
+  - create a file name with date and time
  
  SPEED
  /////////////////
@@ -35,76 +39,98 @@
  */
 
 #include <OneWire.h>
+#include <SD.h>
+
 
 // SENSORS
 //////////
 
-#define speedReed          A0        // speed reed switch
-#define cadenceReed        A1        // cadence reed switch
-int tempSensor            = 2;       // DS18S20 Signal pin on digital 2
+#define speedReed          A0          // speed reed switch
+#define cadenceReed        A1          // cadence reed switch
+int tempSensor            = 2;         // DS18S20 Signal pin on digital 2
 
 
+// LOG
+//////
 
+File myFile;                           // object to handle with the file in the SD
 
 
 // TOTAL MEASURES
 /////////////////
-float odometer            = 0;       // total distante
-int maxReedCounter        = 300;     // min time (in ms) of one rotation (for debouncing)
+float odometer            = 0;         // total distante
+int maxReedCounter        = 300;       // min time (in ms) of one rotation (for debouncing)
 
 
 // PER RIDE
 ///////////
 
-boolean rideStarted       = false;    // if the bike is moving = true
-boolean moving            = false;    // if the bike is moving = true
-long rideTime             = 0;        // total time of the ride
-long movingTime           = 0;        // only the moving time
-float distance            = 0.00;     // total distance of the ride in Km
+boolean rideStarted       = false;      // if the bike is moving = true
+boolean moving            = false;      // if the bike is moving = true
+long rideTime             = 0;          // total time of the ride
+long movingTime           = 0;          // only the moving time
+float distance            = 0.00;       // total distance of the ride in Km
 
 
 // SPEED VARIBALES
 
-long speedTimer           = 0;        // time between one full rotation (in ms)
-long speedNumberSamples   = 0;        // total of revolutions made by the front wheel
-float speedSamplesSum     = 0;       // sum of all the speeds collected
-float circumference       = 210;      // lenght of the tire
-float kph                 = 0.00;     // speed in kph
-float mph                 = 0.00;     // speed in mph
-float topSpeed            = 0;        // top speed of the ride
-float avgSpeed            = 0;        // average speed of the ride
-int speedReedVal          = 0;        // ?? stores if the switch is open or closed // change to boolean?
-int speedReedCounter      = 0;        // ??
+long speedTimer           = 0;          // time between one full rotation (in ms)
+long speedNumberSamples   = 0;          // total of revolutions made by the front wheel
+float speedSamplesSum     = 0;          // sum of all the speeds collected
+float circumference       = 210;        // lenght of the tire
+float kph                 = 0.00;       // speed in kph
+float mph                 = 0.00;       // speed in mph
+float topSpeed            = 0;          // top speed of the ride
+float avgSpeed            = 0;          // average speed of the ride
+int speedReedVal          = 0;          // ?? stores if the switch is open or closed // change to boolean?
+int speedReedCounter      = 0;          // ??
 
 // CADENCE VARIABLES
 
-long cadenceTimer         = 0;        // time between one full rotation (in ms)
-long cadenceNumberSamples = 0;        // total of revolutions made by the front wheel
-float cadenceSamplesSum   = 0;        // sum of all the speeds collected
-float cadence             = 0.00;     // actual cadence
-float avgCadence          = 0;        // average cadence of the ride
-float topCadence          = 0;        // top cadence fo the ride
-int cadenceReedVal        = 0;        // stores if the switch is open or closed // change to boolean?
-int cadenceReedCounter    = 0;        // ??
+long cadenceTimer         = 0;          // time between one full rotation (in ms)
+long cadenceNumberSamples = 0;          // total of revolutions made by the front wheel
+float cadenceSamplesSum   = 0;          // sum of all the speeds collected
+float cadence             = 0.00;       // actual cadence
+float avgCadence          = 0;          // average cadence of the ride
+float topCadence          = 0;          // top cadence fo the ride
+int cadenceReedVal        = 0;          // stores if the switch is open or closed // change to boolean?
+int cadenceReedCounter    = 0;          // ??
 
 
 // TEMPERATURE
 
 OneWire ds(tempSensor); // on digital pin 2
 
-float temperature        = 0.00;    // stores the temperature
-float maxTemp            = 0.00;    // stores the maximum temperature of the ride
-float minTemp            = 0.00;    // stores the minumum temperature of the ride
-float avgTemp            = 0.00;    // stores the average temp of the ride
-float tempSum            = 0.00;    // sum of all the temperature reads
+float temperature        = 0.00;      // stores the temperature
+float maxTemp            = 0.00;      // stores the maximum temperature of the ride
+float minTemp            = 100.00;    // stores the minimum temperature of the ride
+float avgTemp            = 0.00;      // stores the average temp of the ride
+float tempSum            = 0.00;      // sum of all the temperature reads
 
 void setup()
 {
   speedReedCounter = maxReedCounter;
-
+  
+  
+  // On the Ethernet Shield, CS is pin 4. It's set as an output by default.
+  // Note that even if it's not used as the CS pin, the hardware SS pin 
+  // (10 on most Arduino boards, 53 on the Mega) must be left as an output 
+  // or the SD library functions will not work. 
+  pinMode(53, OUTPUT);
   pinMode(speedReed, INPUT);            // speed input
   pinMode(cadenceReed, INPUT);          // cadence ipunt
 
+  
+  // SD
+  
+  if (!SD.begin(4))
+  {
+    Serial.println("initialization failed!");
+    return;
+  }
+  
+  Serial.println("initialization done."); 
+  
 
   // TIMER SETUP- the timer interrupt allows precise timed measurements of the reed switch
   //for more info about configuration of arduino timers see http://arduino.cc/playground/Code/Timer1
@@ -327,18 +353,20 @@ void displayCadence()
 
 void loop()
 {  
-
-  //print kph once a second
+ 
+  // print kph once a second
   displayKMH();
+  
+  // print cadence once a second
   displayCadence();
 
-  // increments 1 every period of 1s
+  // increments 1 once a second
   if(rideStarted)
   {
     rideTime++;
   }
 
-  // increments 1 every period of 1s
+  // increments 1 once a second
   if(moving)
   {
     movingTime++;
@@ -352,9 +380,8 @@ void loop()
   cadenceSamplesSum += cadence;                          // add the new calculate cadence
   avgCadence = cadenceSamplesSum/(float)movingTime;      // calculate average cadence
 
-    // RIDE DISTANCE
+  // RIDE DISTANCE
   distance = circumference * (float)speedNumberSamples / 100000;     // calculate distance in Km  
-
 
 
   // TEMPERATURE
@@ -379,7 +406,11 @@ void loop()
   {
     minTemp = temperature;
   }
-
+  
+  // save to log
+  saveToLog();
+ 
+ 
   Serial.print("Distance: ");
   Serial.print(distance);
   Serial.print(" | ");
@@ -438,9 +469,31 @@ String printTime(long t)
   time += temp;                // concatenate the second in the string time
 
 
-  return time;                  // return time in this format: 0:0:0
+  return time;                 // return time in this format: 0:0:0
 
 }
+
+
+// save to log
+void saveToLog()
+{
+  
+  // open the file. note that only one file can be open at a time,
+  // so you have to close this one before opening another.
+  myFile = SD.open("log.txt", FILE_WRITE);  
+   
+  // if the file opened okay, write to it:
+  if (myFile)
+  {
+    //Serial.print("Writing to test.txt...");
+    myFile.print(kph);
+    myFile.println(",");
+    
+    // close the file:
+    myFile.close();    
+  }   
+  
+} // end of saveToLog
 
 
 // Get temp method
@@ -495,14 +548,3 @@ float getTemp()
   return TemperatureSum;
 
 } // end of getTemp()
-
-
-
-
-
-
-
-
-
-
-
