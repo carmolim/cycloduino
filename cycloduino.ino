@@ -2,6 +2,8 @@
 // Augusto Carmo (carmolim) 2012 - https://github.com/carmolim/cycloduino
 // Inspired on the work of Amanda Ghassae - http://www.instructables.com/id/Arduino-Bike-Speedometer/
 
+// TEMP - http://bildr.org/2011/07/ds18b20-arduino/
+
 /*
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,7 +24,7 @@
  OK - average speed  
  OK - top speed
  
-  
+ 
  CADENCE
  ////////////////
  
@@ -32,9 +34,17 @@
  
  */
 
+#include <OneWire.h>
 
-#define speedReed         A0         // speed reed switch
-#define cadenceReed       A1         // cadence reed switch
+// SENSORS
+//////////
+
+#define speedReed          A0        // speed reed switch
+#define cadenceReed        A1        // cadence reed switch
+int tempSensor            = 2;       // DS18S20 Signal pin on digital 2
+
+
+
 
 
 // TOTAL MEASURES
@@ -56,8 +66,8 @@ float distance            = 0.00;     // total distance of the ride in Km
 // SPEED VARIBALES
 
 long speedTimer           = 0;        // time between one full rotation (in ms)
-long speedSamplesSum      = 0;        // sum of all the speeds collected
 long speedNumberSamples   = 0;        // total of revolutions made by the front wheel
+float speedSamplesSum     = 0;       // sum of all the speeds collected
 float circumference       = 210;      // lenght of the tire
 float kph                 = 0.00;     // speed in kph
 float mph                 = 0.00;     // speed in mph
@@ -69,14 +79,24 @@ int speedReedCounter      = 0;        // ??
 // CADENCE VARIABLES
 
 long cadenceTimer         = 0;        // time between one full rotation (in ms)
-long cadenceSamplesSum    = 0;        // sum of all the speeds collected
 long cadenceNumberSamples = 0;        // total of revolutions made by the front wheel
+float cadenceSamplesSum   = 0;        // sum of all the speeds collected
 float cadence             = 0.00;     // actual cadence
 float avgCadence          = 0;        // average cadence of the ride
 float topCadence          = 0;        // top cadence fo the ride
 int cadenceReedVal        = 0;        // stores if the switch is open or closed // change to boolean?
 int cadenceReedCounter    = 0;        // ??
 
+
+// TEMPERATURE
+
+OneWire ds(tempSensor); // on digital pin 2
+
+float temperature        = 0.00;    // stores the temperature
+float maxTemp            = 0.00;    // stores the maximum temperature of the ride
+float minTemp            = 0.00;    // stores the minumum temperature of the ride
+float avgTemp            = 0.00;    // stores the average temp of the ride
+float tempSum            = 0.00;    // sum of all the temperature reads
 
 void setup()
 {
@@ -269,6 +289,14 @@ void displayKMH()
   Serial.print(speedSamplesSum/(float)rideTime);
   Serial.print(" | ");
 
+  Serial.print("speedSamplesSum: ");
+  Serial.print(speedSamplesSum);
+  Serial.print(" | ");  
+
+  Serial.print("rotations S: ");
+  Serial.print(speedNumberSamples);
+  Serial.print(" | ");
+
   /*
   Serial.print("Top Speed ");
    Serial.print(topSpeed);
@@ -295,27 +323,26 @@ void displayCadence()
   Serial.print(cadenceNumberSamples);
   Serial.print(" | ");
 
-
-}
+} // ende displayCadence()
 
 void loop()
-{
+{  
+
   //print kph once a second
   displayKMH();
   displayCadence();
 
-  //
+  // increments 1 every period of 1s
   if(rideStarted)
   {
     rideTime++;
   }
 
-  //
+  // increments 1 every period of 1s
   if(moving)
   {
     movingTime++;
   }
-
 
   // AVERAGE SPEED  
   speedSamplesSum += kph;                                // add the new calculate kph                                     
@@ -329,20 +356,40 @@ void loop()
   distance = circumference * (float)speedNumberSamples / 100000;     // calculate distance in Km  
 
 
+
+  // TEMPERATURE
+
+  // update the actual temperature
+  // temperature = getTemp();
+
+  // adds the actual temperature readind to de sum
+  tempSum += temperature;
+
+  // calulate the avgTemp
+  avgTemp = tempSum/rideTime;
+
+  // verifies that this is the highest temperature recorded
+  if(temperature > maxTemp)
+  {
+    maxTemp = temperature;
+  }
+
+  // verifies that this is the lowest temperature recorded
+  if(temperature < minTemp)
+  {
+    minTemp = temperature;
+  }
+
   Serial.print("Distance: ");
   Serial.print(distance);
   Serial.print(" | ");
 
-  Serial.print("rotations S: ");
-  Serial.print(speedNumberSamples);
-  Serial.print(" | ");
-
   Serial.print("movingTime: ");
-  Serial.print(movingTime);
+  Serial.print(printTime(movingTime));
   Serial.print(" | ");
 
   Serial.print("total time: ");
-  Serial.print(rideTime);
+  Serial.print(printTime(rideTime));
   Serial.print(" | ");
 
 
@@ -365,6 +412,93 @@ void loop()
   delay(1000); 
 
 }// end of loop
+
+
+// return a readeable format of time
+String printTime(long t)
+{ 
+  
+  String time;                 // stores the time 0:0:0
+  char temp[25];               // the calculations converded
+  float h, m, s;               // variables for the time calculation
+
+  h = t / 3600;                // calculates de hours 
+  m = (t % 3600) / 60;         // calculates de minutes 
+  s = t % 60;                  // calculates de seconds 
+
+  dtostrf(h, 1, 0, temp);      // convert float hour to string and add to temp array
+  time += temp;                // concatenate the hour in the string time
+  time += ':';                 // concatenate ':' in the string time
+  
+  dtostrf(m, 1, 0, temp);      // convert float minute to string and add to temp array
+  time += temp;                // concatenate the minute in the string time
+  time += ':' ;                // concatenate ':' in the string time
+  
+  dtostrf(s, 1, 0, temp);      // convert float second to string and add to temp array
+  time += temp;                // concatenate the second in the string time
+
+
+  return time;                  // return time in this format: 0:0:0
+
+}
+
+
+// Get temp method
+float getTemp()
+{
+  //returns the temperature from one DS18S20 in DEG Celsius
+
+  byte data[12];
+  byte addr[8];
+
+  if ( !ds.search(addr))
+  {
+    // no more sensors on chain, reset search
+    ds.reset_search();
+    return -1000;
+  }
+
+  if (OneWire::crc8( addr, 7) != addr[7])
+  {
+    Serial.println("CRC is not valid!");
+    return -1000;
+  }
+
+  if ( addr[0] != 0x10 && addr[0] != 0x28)
+  {
+    Serial.print("Device is not recognized");
+    return -1000;
+  }
+
+  ds.reset();
+  ds.select(addr);
+  ds.write(0x44,1); // start conversion, with parasite power on at the end
+
+  byte present = ds.reset();
+  ds.select(addr);  
+  ds.write(0xBE); // Read Scratchpad
+
+
+  for (int i = 0; i < 9; i++)
+  { // we need 9 bytes
+    data[i] = ds.read();
+  }
+
+  ds.reset_search();
+
+  byte MSB = data[1];
+  byte LSB = data[0];
+
+  float tempRead = ((MSB << 8) | LSB); //using two's compliment
+  float TemperatureSum = tempRead / 16;
+
+  return TemperatureSum;
+
+} // end of getTemp()
+
+
+
+
 
 
 
