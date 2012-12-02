@@ -100,7 +100,7 @@ int cadenceReedCounter    = 0;          // ??
 
 // TEMPERATURE
 
-OneWire ds(tempSensor); // on digital pin 2
+OneWire ds(tempSensor);               // on digital pin 2
 
 float temperature        = 0.00;      // stores the temperature
 float maxTemp            = 0.00;      // stores the maximum temperature of the ride
@@ -144,9 +144,8 @@ void setup()
     myFile.println();
 
     // close the file:
-    myFile.close();    
+    myFile.close();   
   }   
-
 
 
   // TIMER SETUP- the timer interrupt allows precise timed measurements of the reed switch
@@ -381,8 +380,16 @@ void displayTemp()
   Serial.print(temperature);
   Serial.print(" | ");
   
-  Serial.print("Temp: ");
+  Serial.print("Avg Temp: ");
   Serial.print(avgTemp);
+  Serial.print(" | ");
+  
+  Serial.print("Max Temp: ");
+  Serial.print(maxTemp);
+  Serial.print(" | ");
+  
+  Serial.print("Min Temp: ");
+  Serial.print(minTemp);
   Serial.print(" | ");
 
 } // end of display temp
@@ -397,7 +404,7 @@ void loop()
   displayCadence();
   
   // print temperatures once a second
-  //displayTemp();
+  displayTemp();
 
   // if the ride started...
   if(rideStarted)
@@ -405,8 +412,11 @@ void loop()
     // increments 1 once a second
     rideTime++;
     
+    // adds the actual temperature read to de sum
+    tempSum += temperature;
+    
     // save to log
-    //saveToLog();
+    saveToLog();
   }
 
   // increments 1 once a second
@@ -422,21 +432,19 @@ void loop()
   // AVERAGE CADENCE  
   cadenceSamplesSum += cadence;                          // add the new calculate cadence
   avgCadence = cadenceSamplesSum/(float)movingTime;      // calculate average cadence
-
-    // RIDE DISTANCE
+  
+  // RIDE DISTANCE
   distance = circumference * (float)speedNumberSamples / 100000;     // calculate distance in Km  
 
 
   // TEMPERATURE
 
   // update the actual temperature
-  //temperature = getTemp();
+  temperature = getTemp();
 
-  // adds the actual temperature readind to de sum
-  tempSum += temperature;
-
+  
   // calulate the avgTemp
-  avgTemp = tempSum/rideTime;
+  avgTemp = tempSum/(float)rideTime;
 
   // verifies that this is the highest temperature recorded
   if(temperature > maxTemp)
@@ -517,6 +525,8 @@ String printTime(long t)
 void saveToLog()
 {
 
+  // ("speed; avgSpeed; rotations S; cadence; avgCadence; rotations C; rideTime; movingTime; temperature;");
+  
   // holds temporary values
   char temp[55];
 
@@ -548,11 +558,18 @@ void saveToLog()
   logLine += "; ";
 
   // adds number of pedal rotations
-  logLine += String(speedNumberSamples);
+  logLine += String(cadenceNumberSamples);
+  logLine += "; ";   
+  
+  // ride total time
+  logLine += String(rideTime);
   logLine += "; ";
-   
-   /* 
-  // adds temperature
+  
+  // moving time
+  logLine += String(movingTime);
+  logLine += "; ";  
+  
+   // adds temperature
   dtostrf(temperature, 1, 2, temp);
   logLine += temp;
   logLine += "; ";  
@@ -561,14 +578,6 @@ void saveToLog()
   dtostrf(avgTemp, 1, 2, temp);
   logLine += temp;
   logLine += "; ";
-
-  // ride total time
-  logLine += String(rideTime);
-  logLine += "; ";
-*/
-  // moving time
-  logLine += String(movingTime);
-  logLine += "; ";  
   
   // open the file. note that only one file can be open at a time,
   // so you have to close this one before opening another.
@@ -586,6 +595,7 @@ void saveToLog()
   }   
 
 } // end of saveToLog
+
 
 
 // Get temp method
@@ -640,9 +650,6 @@ float getTemp()
   return TemperatureSum;
 
 } // end of getTemp()
-
-
-
 
 
 
