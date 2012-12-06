@@ -176,11 +176,16 @@ void setup()
 
   Serial.begin(9600);
 
-}// setup end
+}// setup() end
 
 
 ISR(TIMER1_COMPA_vect)
 {// Interrupt at freq of 1kHz to measure reed switch
+
+
+  //TIME
+
+ 
 
   //SPEED
 
@@ -245,12 +250,6 @@ ISR(TIMER1_COMPA_vect)
     speedTimer += 1; // increment speedTimer
   } 
 
-  // verifies if this speed is the top speed of the ride
-  if(kph > topSpeed)
-  {
-    topSpeed = kph;
-  }    
-  
 
 
   // CADENCE
@@ -309,13 +308,6 @@ ISR(TIMER1_COMPA_vect)
   {
     cadenceTimer += 1; // increment timer
   } 
-
-  // verifies if this cadence is the top cadence of the ride
-  if(cadence > topCadence)
-  {
-    topCadence = cadence;
-  }
-
 }
 
 void displayKMH()
@@ -397,15 +389,8 @@ void displayTemp()
 void loop()
 {  
 
-  // print kph once a second
-  displayKMH();
-
-  // print cadence once a second
-  displayCadence();
+  // TIME
   
-  // print temperatures once a second
-  displayTemp();
-
   // if the ride started...
   if(rideStarted)
   {
@@ -425,23 +410,48 @@ void loop()
     movingTime++;
   }
 
-  // AVERAGE SPEED  
+
+  // SPEED
+
+  // verifies if this speed is the top speed of the ride
+  if(kph > topSpeed)
+  {
+    topSpeed = kph;
+  }      
+
+  // Average speed
   speedSamplesSum += kph;                                // add the new calculate kph                                     
   avgSpeed = speedSamplesSum/(float)movingTime;          // calculate average speed
 
-  // AVERAGE CADENCE  
+  // print kph once a second
+  displayKMH();
+  
+  // Ride distance
+  distance = circumference * (float)speedNumberSamples / 100000;     // calculate distance in Km  
+
+
+ // CADENCE
+
+  // verifies if this cadence is the top cadence of the ride
+  if(cadence > topCadence)
+  {
+    topCadence = cadence;
+  }
+
+  // Average cadence 
   cadenceSamplesSum += cadence;                          // add the new calculate cadence
   avgCadence = cadenceSamplesSum/(float)movingTime;      // calculate average cadence
+
+  // print cadence once a second
+  displayCadence();
   
-  // RIDE DISTANCE
-  distance = circumference * (float)speedNumberSamples / 100000;     // calculate distance in Km  
+
 
 
   // TEMPERATURE
 
   // update the actual temperature
   temperature = getTemp();
-
   
   // calulate the avgTemp
   avgTemp = tempSum/(float)rideTime;
@@ -457,6 +467,10 @@ void loop()
   {
     minTemp = temperature;
   }
+
+  // print temperatures once a second
+  displayTemp();
+
   
 
   Serial.print("Distance: ");
