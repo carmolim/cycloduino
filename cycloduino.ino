@@ -2,7 +2,7 @@
 // Augusto Carmo (carmolim) 2012 - https://github.com/carmolim/cycloduino
 // Inspired on the work of Amanda Ghassae - http://www.instructables.com/id/Arduino-Bike-Speedometer/
 
-// DS18B20 - TEMP CODE FROM: http://bildr.org/2011/07/ds18b20-arduino/
+// TEMP - http://bildr.org/2011/07/ds18b20-arduino/
 
 /*
  * This program is free software; you can redistribute it and/or modify
@@ -17,12 +17,12 @@
  TODO
  
  LOG
- /////////////////
+ ///
  
  - create a file name with date and time
  
  SPEED
- /////////////////
+ /////
  
  OK - current speed
  OK - average speed  
@@ -30,13 +30,17 @@
  
  
  CADENCE
- ////////////////
+ ///////
  
  OK - how to calculate cadence
  OK - max cadence
  OK - average cadenc
  
  */
+
+
+// LIBRARIES
+////////////
 
 #include <OneWire.h>
 #include <SD.h>
@@ -45,22 +49,22 @@
 // SENSORS
 //////////
 
-#define speedReed          A0          // speed reed switch
-#define cadenceReed        A1          // cadence reed switch
-int tempSensor            = 2;         // DS18S20 Signal pin on digital 2
+#define speedReed          A0           // speed reed switch
+#define cadenceReed        A1           // cadence reed switch
+int tempSensor           = 2;           // DS18S20 Signal pin on digital 2
 
 
 // LOG
 //////
 
-File myFile;                           // object to handle with the file in the SD
-String logLine;                        // stores each log line before it is recorded in th SD
+File myFile;                            // object to handle with the file in the SD
+String logLine;                         // stores each log line before it is recorded in th SD
 
 
 // TOTAL MEASURES
 /////////////////
-float odometer            = 0;         // total distante
-int maxReedCounter        = 300;       // min time (in ms) of one rotation (for debouncing)
+float odometer            = 0;          // total distante
+int maxReedCounter        = 300;        // min time (in ms) of one rotation (for debouncing)
 
 
 // PER RIDE
@@ -70,15 +74,17 @@ boolean rideStarted       = false;      // if the bike is moving = true
 boolean moving            = false;      // if the bike is moving = true
 long rideTime             = 0;          // total time of the ride
 long movingTime           = 0;          // only the moving time
+long millisCount          = 0;          // stores the number of cicles runned in the interrupt
 float distance            = 0.00;       // total distance of the ride in Km
 
 
 // SPEED VARIBALES
+//////////////////
 
 long speedTimer           = 0;          // time between one full rotation (in ms)
 long speedNumberSamples   = 0;          // total of revolutions made by the front wheel
 float speedSamplesSum     = 0;          // sum of all the speeds collected
-float circumference       = 210;        // lenght of the tire
+float circumference       = 210;        // lenght of the wheel
 float kph                 = 0.00;       // speed in kph
 float mph                 = 0.00;       // speed in mph
 float topSpeed            = 0;          // top speed of the ride
@@ -86,7 +92,9 @@ float avgSpeed            = 0;          // average speed of the ride
 int speedReedVal          = 0;          // ?? stores if the switch is open or closed // change to boolean?
 int speedReedCounter      = 0;          // ??
 
+
 // CADENCE VARIABLES
+////////////////////
 
 long cadenceTimer         = 0;          // time between one full rotation (in ms)
 long cadenceNumberSamples = 0;          // total of revolutions made by the front wheel
@@ -99,19 +107,18 @@ int cadenceReedCounter    = 0;          // ??
 
 
 // TEMPERATURE
+//////////////
 
-OneWire ds(tempSensor);               // on digital pin 2
-
-float temperature        = 0.00;      // stores the temperature
-float maxTemp            = 0.00;      // stores the maximum temperature of the ride
-float minTemp            = 100.00;    // stores the minimum temperature of the ride
-float avgTemp            = 0.00;      // stores the average temp of the ride
-float tempSum            = 0.00;      // sum of all the temperature reads
+OneWire ds(tempSensor);                 // on digital pin 2
+float temperature        = 0.00;        // stores the temperature
+float maxTemp            = 0.00;        // stores the maximum temperature of the ride
+float minTemp            = 100.00;      // stores the minimum temperature of the ride
+float avgTemp            = 0.00;        // stores the average temp of the ride
+float tempSum            = 0.00;        // sum of all the temperature reads
 
 void setup()
 {
   speedReedCounter = maxReedCounter;
-
 
   // On the Ethernet Shield, CS is pin 4. It's set as an output by default.
   // Note that even if it's not used as the CS pin, the hardware SS pin 
@@ -119,8 +126,10 @@ void setup()
   // or the SD library functions will not work. 
   pinMode(53, OUTPUT);
   pinMode(speedReed, INPUT);            // speed input
-  pinMode(cadenceReed, INPUT);          // cadence ipunt
+  pinMode(cadenceReed, INPUT);          // cadence input
 
+
+/* did´t work without the SD shield ?
 
   // SD
 
@@ -139,7 +148,7 @@ void setup()
   // if the file opened okay, write to it:
   if (myFile)
   {
-    //Serial.print("Writing to test.csv...");
+    //Serial.print("Writing to log.csv...");
     myFile.print("speed; avgSpeed; rotations S; cadence; avgCadence; rotations C; rideTime; movingTime; temperature;");
     myFile.println();
 
@@ -147,6 +156,7 @@ void setup()
     myFile.close();   
   }   
 
+*/
 
   // TIMER SETUP- the timer interrupt allows precise timed measurements of the reed switch
   //for more info about configuration of arduino timers see http://arduino.cc/playground/Code/Timer1
@@ -176,18 +186,15 @@ void setup()
 
   Serial.begin(9600);
 
-}// setup() end
+}// setup end
 
 
 ISR(TIMER1_COMPA_vect)
 {// Interrupt at freq of 1kHz to measure reed switch
 
 
-  //TIME
-
- 
-
   //SPEED
+  ///////
 
   // get val of A0
   speedReedVal = digitalRead(speedReed);
@@ -197,14 +204,13 @@ ISR(TIMER1_COMPA_vect)
     // if reed switch is closed
     if (speedReedCounter == 0)
     {
-
-      //min time between pulses has passed
+      // min time between pulses has passed
       kph = (37.76*float(circumference))/float(speedTimer); //calculate kilometers per hour why 37.76?
 
       // reset speedTimer      
       speedTimer = 0;
 
-      //reset speedReedCounter
+      // reset speedReedCounter
       speedReedCounter = maxReedCounter;
 
       // increase number of samples by 1 - number of wheel rotations ajust the debouncer??
@@ -215,14 +221,13 @@ ISR(TIMER1_COMPA_vect)
 
       // the wheel is spinning
       moving = true;
-
     }
 
     else
     {
       if (speedReedCounter > 0)
       {// don't let speedReedCounter go negative
-        speedReedCounter -= 1;//decrement speedReedCounter
+        speedReedCounter -= 1; // decrement speedReedCounter
       }
     }
   }
@@ -231,8 +236,8 @@ ISR(TIMER1_COMPA_vect)
   {
     // if reed switch is open
     if (speedReedCounter > 0)
-    {//don't let speedReedCounter go negative
-      speedReedCounter -= 1; //decrement speedReedCounter
+    {// don't let speedReedCounter go negative
+      speedReedCounter -= 1; // decrement speedReedCounter
     }
   }
 
@@ -253,14 +258,13 @@ ISR(TIMER1_COMPA_vect)
 
 
   // CADENCE
-  /////////////
-
+  //////////
 
   // get val of A1
   cadenceReedVal = digitalRead(cadenceReed);
 
-  // if reed switch is closed
-  if (cadenceReedVal)
+  // if reed switch is if closed
+  if(cadenceReedVal)
   {
     if (cadenceReedCounter == 0)
     {// min time between pulses has passed
@@ -308,8 +312,38 @@ ISR(TIMER1_COMPA_vect)
   {
     cadenceTimer += 1; // increment timer
   } 
+
+
+  // TIME
+  ///////
+
+  // if the timeCount is == to 1000 (1s)
+  if(millisCount == 1000)
+  {
+    // if the ride started...
+    if(rideStarted)
+    {
+      // increments 1 once a second
+      rideTime += 1;  
+    }
+    
+    // if the bike is moving...
+    if(moving)
+    {
+      // increments 1 once a second
+      movingTime += 1;
+    }
+    
+    // reset the counter
+    millisCount = 0; 
+  }
+
+  // increments 1 every cicle
+  millisCount += 1;
+
 }
 
+// method to display the speed data
 void displayKMH()
 {
   Serial.print("Speed: ");
@@ -320,6 +354,10 @@ void displayKMH()
   Serial.print("AvgSpeed: ");
   Serial.print(avgSpeed);
   Serial.print(" | ");
+
+  Serial.print("rotations S: ");
+  Serial.print(speedNumberSamples);
+  Serial.print(" | ");
   
 /*
   Serial.print("Avg Speed Mov Total: ");
@@ -329,20 +367,15 @@ void displayKMH()
   Serial.print("speedSum: ");
   Serial.print(speedSamplesSum);
   Serial.print(" | ");  
+
+  Serial.print("Top Speed ");
+  Serial.print(topSpeed);
+  Serial.print(" | ");
 */
 
-  Serial.print("rotations S: ");
-  Serial.print(speedNumberSamples);
-  Serial.print(" | ");
+} // end of displayKMH()
 
-  /*
-  Serial.print("Top Speed ");
-   Serial.print(topSpeed);
-   Serial.print(" | ");
-   */
-}
-
-
+// method to display the cadence data
 void displayCadence()
 {
   Serial.print("Cadence: ");
@@ -352,19 +385,20 @@ void displayCadence()
   Serial.print("AvgCadence: ");
   Serial.print(speedSamplesSum/(float)movingTime);
   Serial.print(" | ");
+
+  Serial.print("rotations C: ");
+  Serial.print(cadenceNumberSamples);
+  Serial.print(" | ");
+
 /*
   Serial.print("Top Cadence: ");
   Serial.print(topCadence);
   Serial.print(" | ");
 */
 
-  Serial.print("rotations C: ");
-  Serial.print(cadenceNumberSamples);
-  Serial.print(" | ");
-
 } // end displayCadence()
 
-
+// method to display the temp data
 void displayTemp()
 {
     
@@ -388,15 +422,10 @@ void displayTemp()
 
 void loop()
 {  
-
-  // TIME
-  
+ 
   // if the ride started...
   if(rideStarted)
-  {
-    // increments 1 once a second
-    rideTime++;
-    
+  {    
     // adds the actual temperature read to de sum
     tempSum += temperature;
     
@@ -404,14 +433,16 @@ void loop()
     saveToLog();
   }
 
-  // increments 1 once a second
-  if(moving)
-  {
-    movingTime++;
-  }
+
+  // DISTANCE
+  ///////////
+  
+  // Ride distance
+  distance = circumference * (float)speedNumberSamples / 100000;     // calculate distance in Km (1000 m)  
 
 
   // SPEED
+  ////////
 
   // verifies if this speed is the top speed of the ride
   if(kph > topSpeed)
@@ -419,18 +450,16 @@ void loop()
     topSpeed = kph;
   }      
 
-  // Average speed
+  // average speed
   speedSamplesSum += kph;                                // add the new calculate kph                                     
   avgSpeed = speedSamplesSum/(float)movingTime;          // calculate average speed
 
   // print kph once a second
   displayKMH();
-  
-  // Ride distance
-  distance = circumference * (float)speedNumberSamples / 100000;     // calculate distance in Km  
 
 
- // CADENCE
+  // CADENCE
+  //////////
 
   // verifies if this cadence is the top cadence of the ride
   if(cadence > topCadence)
@@ -438,7 +467,7 @@ void loop()
     topCadence = cadence;
   }
 
-  // Average cadence 
+  // average cadence 
   cadenceSamplesSum += cadence;                          // add the new calculate cadence
   avgCadence = cadenceSamplesSum/(float)movingTime;      // calculate average cadence
 
@@ -446,9 +475,8 @@ void loop()
   displayCadence();
   
 
-
-
   // TEMPERATURE
+  //////////////
 
   // update the actual temperature
   temperature = getTemp();
@@ -456,13 +484,13 @@ void loop()
   // calulate the avgTemp
   avgTemp = tempSum/(float)rideTime;
 
-  // verifies that this is the highest temperature recorded
+  // verifies if this is the highest temperature recorded
   if(temperature > maxTemp)
   {
     maxTemp = temperature;
   }
 
-  // verifies that this is the lowest temperature recorded
+  // verifies if this is the lowest temperature recorded
   if(temperature < minTemp)
   {
     minTemp = temperature;
@@ -472,6 +500,7 @@ void loop()
   displayTemp();
 
   
+  // print other data
 
   Serial.print("Distance: ");
   Serial.print(distance);
@@ -485,23 +514,23 @@ void loop()
   Serial.print(printTime(rideTime));
   Serial.print(" | ");
 
-  /*
-  Serial.print("speedReedCounter: ");
-   Serial.print(speedReedCounter);
-   Serial.print(" | ");
-   
-   Serial.print("speedReedVal: ");
-   Serial.print(speedReedVal);
-   Serial.print(" | ");
-   
-   Serial.print("speedTimer: ");
-   Serial.print(speedTimer);
-   Serial.print(" | ");
-   */
+/*
+ Serial.print("speedReedCounter: ");
+ Serial.print(speedReedCounter);
+ Serial.print(" | ");
+ 
+ Serial.print("speedReedVal: ");
+ Serial.print(speedReedVal);
+ Serial.print(" | ");
+ 
+ Serial.print("speedTimer: ");
+ Serial.print(speedTimer);
+ Serial.print(" | ");
+*/
 
-  Serial.println();
+  Serial.println(); // jump to the next line
 
-  delay(1000); 
+  delay(1000); // waits for 1s for the next loop
 
 }// end of loop
 
@@ -535,7 +564,7 @@ String printTime(long t)
 } // end of printTime()
 
 
-// save to log
+// method to save the log
 void saveToLog()
 {
 
@@ -583,7 +612,7 @@ void saveToLog()
   logLine += String(movingTime);
   logLine += "; ";  
   
-   // adds temperature
+  // adds temperature
   dtostrf(temperature, 1, 2, temp);
   logLine += temp;
   logLine += "; ";  
@@ -607,12 +636,10 @@ void saveToLog()
     // close the file:
     myFile.close();    
   }   
-
 } // end of saveToLog
 
 
-
-// Get temp method
+// method to get temp method
 float getTemp()
 {
   //returns the temperature from one DS18S20 in DEG Celsius
@@ -620,7 +647,7 @@ float getTemp()
   byte data[12];
   byte addr[8];
 
-  if ( !ds.search(addr))
+  if (!ds.search(addr))
   {
     // no more sensors on chain, reset search
     ds.reset_search();
@@ -662,8 +689,4 @@ float getTemp()
   float TemperatureSum = tempRead / 16;
 
   return TemperatureSum;
-
 } // end of getTemp()
-
-
-
