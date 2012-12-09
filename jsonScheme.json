@@ -1,0 +1,29 @@
+/*
+Step: 1000ms
+*/
+
+{
+	"seg": [
+			{
+				"id" 			: "0",
+				"date"			: "XXXX"
+				"speed" 		: "25.00",
+				"distance"		: "0.00"
+				"cadence" 		: "80",
+				"temperature"	: "24.56",
+				"heartRate"		: "105",
+				"altitute"		: "918.52"
+			},
+	
+			{
+				"id" 			: "2",
+				"date"			: "XXXX"
+				"speed" 		: "24.65",
+				"distance"		: "0.01"
+				"cadence" 		: "82",
+				"temperature"	: "29.36",
+				"heartRate"		: "103",
+				"altitute"		: "918.53"
+			},
+	]
+}
