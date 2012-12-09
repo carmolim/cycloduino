@@ -129,11 +129,7 @@ void setup()
   pinMode(cadenceReed, INPUT);          // cadence input
 
 
-<<<<<<< HEAD
-/* did´t work without the SD shield ?
-=======
 /* didn´t work without the SD shield ?
->>>>>>> Measuring time more precisely, speed calculations fix
 
   // SD
 
@@ -161,8 +157,8 @@ void setup()
   }   
 
 */
-
-  // TIMER SETUP- the timer interrupt allows precise timed measurements of the reed switch
+ 
+  // TIMER SETUP - the timer interrupt allows precise timed measurements of the reed switch
   //for more info about configuration of arduino timers see http://arduino.cc/playground/Code/Timer1
 
   cli(); //stop interrupts
@@ -210,11 +206,7 @@ ISR(TIMER1_COMPA_vect)
     if (speedReedCounter == 0)
     {
       // min time between pulses has passed
-<<<<<<< HEAD
-      kph = (37.76*float(circumference))/float(speedTimer); //calculate kilometers per hour why 37.76?
-=======
       kph = (36*float(circumference))/float(speedTimer); // calculate kilometers per hour
->>>>>>> Measuring time more precisely, speed calculations fix
 
       // reset speedTimer      
       speedTimer = 0;
