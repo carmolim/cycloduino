@@ -129,7 +129,11 @@ void setup()
   pinMode(cadenceReed, INPUT);          // cadence input
 
 
+<<<<<<< HEAD
 /* did´t work without the SD shield ?
+=======
+/* didn´t work without the SD shield ?
+>>>>>>> Measuring time more precisely, speed calculations fix
 
   // SD
 
@@ -199,13 +203,18 @@ ISR(TIMER1_COMPA_vect)
   // get val of A0
   speedReedVal = digitalRead(speedReed);
 
+  // if reed switch is closed
   if (speedReedVal)
   {
-    // if reed switch is closed
+    //min time between pulses has passed
     if (speedReedCounter == 0)
     {
       // min time between pulses has passed
+<<<<<<< HEAD
       kph = (37.76*float(circumference))/float(speedTimer); //calculate kilometers per hour why 37.76?
+=======
+      kph = (36*float(circumference))/float(speedTimer); // calculate kilometers per hour
+>>>>>>> Measuring time more precisely, speed calculations fix
 
       // reset speedTimer      
       speedTimer = 0;
@@ -266,9 +275,9 @@ ISR(TIMER1_COMPA_vect)
   // if reed switch is if closed
   if(cadenceReedVal)
   {
+    //min time between pulses has passed
     if (cadenceReedCounter == 0)
-    {// min time between pulses has passed
-
+    {
       // calculate rotations per minute 
       cadence = float(60000)/float(cadenceTimer);
 
