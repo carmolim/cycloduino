@@ -7,11 +7,11 @@ What will this include:
 
 ##Speed
 
-*Current speed
-*Average speed
-*Maximum speed
-*Trip distance
-*Odometer
+ * Current speed
+ * Average speed
+ * Maximum speed
+ * Trip distance
+ * Odometer
 
 
 ##Cadence
