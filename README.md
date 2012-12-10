@@ -7,48 +7,48 @@ What will this include:
 
 ##Speed
 
-Current speed
-Average speed
-Maximum speed
-Trip distance
-Odometer
+*Current speed
+*Average speed
+*Maximum speed
+*Trip distance
+*Odometer
 
 
 ##Cadence
 
-Current cadence
-Average cadence
-Top cadence
-Cadence zones
+*Current cadence
+*Average cadence
+*Top cadence
+*Cadence zones
 
 
 ##Heart rate functions
 
-Current heart rate
-Average heart rate
-Maximum heart rate
-Heart rate zones
+*Current heart rate
+*Average heart rate
+*Maximum heart rate
+*Heart rate zones
 
 
 ##Temperature functions
 
-Current temperature
-Minimum temperature
-Maximum temperature
-Average temperature
+*Current temperature
+*Minimum temperature
+*Maximum temperature
+*Average temperature
 
 
 ##Time functions
 
-Total moving time
-Trip moving time
-Trip time
-Time (12/24 h)
-Stopwatch
-Countdown timer
+*Total moving time
+*Trip moving time
+*Trip time
+*Time (12/24 h)
+*Stopwatch
+*Countdown timer
 
 
 ##Altitude measurement functions
 
-Current altitude
-Ride total ascent
+*Current altitude
+*Ride total ascent
