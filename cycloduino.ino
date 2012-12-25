@@ -17,9 +17,11 @@
  TODO
  
  LOG
- ///
- 
- - create a file name with date and time
+ /// 
+
+  - create a file name with date and time - I'll need a DS1302 or DS1307
+  - think is going to be easier to just add a sequencial number and make a verification if the file name already exists
+  - use EEPROM as a cache to record fewer times in the SD? Make sense?
  
  SPEED
  /////
@@ -38,6 +40,14 @@
  
  */
 
+ /*
+ git
+ Better temperature average
+Incremental naming of the log
+Logo image
+Add some LEDs for debuging
+ */
+
 
 // LIBRARIES
 ////////////
@@ -49,72 +59,83 @@
 // SENSORS
 //////////
 
-#define speedReed          A0           // speed reed switch
-#define cadenceReed        A1           // cadence reed switch
-int tempSensor           = 2;           // DS18S20 Signal pin on digital 2
+#define speedReed           A0                // speed reed switch
+#define cadenceReed         A1                // cadence reed switch
+int tempSensor            = 2;                // DS18S20 Signal pin on digital 2
+
+
+// DEBUG
+////////
+
+int sLed                   = 51;               // speed reed LED - UV 
+int cLed                   = 53;               // cadence reed LED - YELLOW
 
 
 // LOG
 //////
 
-File myFile;                            // object to handle with the file in the SD
-String logLine;                         // stores each log line before it is recorded in th SD
+File myFile;                                  // object to handle with the file in the SD
+String logLine;                               // stores each log line before it is recorded in th SD
+char logName[]            = "RIDE_00.csv";    // create an array that contains the name of our file.
 
 
 // TOTAL MEASURES
 /////////////////
-float odometer            = 0;          // total distante
-int maxReedCounter        = 300;        // min time (in ms) of one rotation (for debouncing)
+
+float odometer            = 0;                // total distante
+int maxReedCounter        = 300;              // min time (in ms) of one rotation (for debouncing)
+int loopCounter           = 0;                // how many times the loop run before the ride started
 
 
 // PER RIDE
 ///////////
 
-boolean rideStarted       = false;      // if the bike is moving = true
-boolean moving            = false;      // if the bike is moving = true
-long rideTime             = 0;          // total time of the ride
-long movingTime           = 0;          // only the moving time
-long millisCount          = 0;          // stores the number of cicles runned in the interrupt
-float distance            = 0.00;       // total distance of the ride in Km
+boolean rideStarted       = false;            // if the bike is moving = true
+boolean moving            = false;            // if the bike is moving = true
+long rideTime             = 0;                // total time of the ride
+long movingTime           = 0;                // only the moving time
+long millisCount          = 0;                // stores the number of cicles runned in the interrupt
+float distance            = 0.00;             // total distance of the ride in Km
 
 
 // SPEED VARIBALES
 //////////////////
 
-long speedTimer           = 0;          // time between one full rotation (in ms)
-long speedNumberSamples   = 0;          // total of revolutions made by the front wheel
-float speedSamplesSum     = 0;          // sum of all the speeds collected
-float circumference       = 210;        // lenght of the wheel
-float kph                 = 0.00;       // speed in kph
-float mph                 = 0.00;       // speed in mph
-float topSpeed            = 0;          // top speed of the ride
-float avgSpeed            = 0;          // average speed of the ride
-int speedReedVal          = 0;          // ?? stores if the switch is open or closed // change to boolean?
-int speedReedCounter      = 0;          // ??
+long speedTimer           = 0;                 // time between one full rotation (in ms)
+long speedNumberSamples   = 0;                 // total of revolutions made by the front wheel
+float speedSamplesSum     = 0;                 // sum of all the speeds collected
+float circumference       = 210;               // lenght of the wheel
+float kph                 = 0.00;              // speed in kph
+float mph                 = 0.00;              // speed in mph
+float topSpeed            = 0;                 // top speed of the ride
+float avgSpeed            = 0;                 // average speed of the ride
+int speedReedVal          = 0;                 // ?? stores if the switch is open or closed // change to boolean?
+int speedReedCounter      = 0;                 // ??
 
 
 // CADENCE VARIABLES
 ////////////////////
 
-long cadenceTimer         = 0;          // time between one full rotation (in ms)
-long cadenceNumberSamples = 0;          // total of revolutions made by the front wheel
-float cadenceSamplesSum   = 0;          // sum of all the speeds collected
-float cadence             = 0.00;       // actual cadence
-float avgCadence          = 0;          // average cadence of the ride
-float topCadence          = 0;          // top cadence fo the ride
-int cadenceReedVal        = 0;          // stores if the switch is open or closed // change to boolean?
-int cadenceReedCounter    = 0;          // ??
+long cadenceTimer         = 0;                 // time between one full rotation (in ms)
+long cadenceNumberSamples = 0;                 // total of revolutions made by the front wheel
+float cadenceSamplesSum   = 0;                 // sum of all the speeds collected
+float cadence             = 0.00;              // actual cadence
+float avgCadence          = 0;                 // average cadence of the ride
+float topCadence          = 0;                 // top cadence fo the ride
+int cadenceReedVal        = 0;                 // stores if the switch is open or closed // change to boolean?
+int cadenceReedCounter    = 0;                 // ??
 
 
 // TEMPERATURE
 //////////////
 
-OneWire ds(tempSensor);                 // on digital pin 2
-float temperature        = 0.00;        // stores the temperature
-float maxTemp            = 0.00;        // stores the maximum temperature of the ride
-float minTemp            = 100.00;      // stores the minimum temperature of the ride
-float avgTemp            = 0.00;        // stores the average temp of the ride
-float tempSum            = 0.00;        // sum of all the temperature reads
+OneWire ds(tempSensor);                        // on digital pin 2
+float temperature        = 0.00;               // stores the temperature
+float maxTemp            = 0.00;               // stores the maximum temperature of the ride
+float minTemp            = 100.00;             // stores the minimum temperature of the ride
+float avgTemp            = 0.00;               // stores the average temp of the ride
+float tempSum            = 0.00;               // sum of all the temperature reads
+int tempCount            = 0;                  // number of samples
 
 void setup()
 {
@@ -124,12 +145,13 @@ void setup()
   // Note that even if it's not used as the CS pin, the hardware SS pin 
   // (10 on most Arduino boards, 53 on the Mega) must be left as an output 
   // or the SD library functions will not work. 
-  pinMode(53, OUTPUT);
-  pinMode(speedReed, INPUT);            // speed input
-  pinMode(cadenceReed, INPUT);          // cadence input
+  pinMode(53, OUTPUT);                         //
+  pinMode(speedReed, INPUT);                   // speed input
+  pinMode(sLed, OUTPUT);                       // speed LED
+  pinMode(cadenceReed, INPUT);                 // cadence input
+  pinMode(cLed, OUTPUT);                       // cadence LED
 
 
-/* didn´t work without the SD shield ?
 
   // SD
 
@@ -140,15 +162,54 @@ void setup()
   }
 
   Serial.println("initialization done."); 
+  
+/*
+  TODO
+
+  1 - search if there is a filename that starts with 01
+  2 - if it finds a filename that starts with 01, find if there is a filename that starts with 02,03,04...
+  3 - after find the last log add 1 to logCount and start a new log with this number
+
+  REF
+  http://arduino.cc/forum/index.php?topic=108264.0
+  http://arduino.cc/forum/index.php?PHPSESSID=a96c1ff6fa88ecd4d0d0094696a1edeb&/topic,105997.0.html
+  * - http://www.ladyada.net/make/logshield/lighttempwalkthru.html
+
+  TEST
+*/
+
+/*
+  // while the filename exists...
+  while(SD.exists(logName))
+  { 
+    logCount += 1;                 // adds 1 to the counter
+    logName[5] = logCount / 10 + '0';
+    logName[6] = logCount % 10 + '0';
+  }   
 
   // open the file. note that only one file can be open at a time,
   // so you have to close this one before opening another.
-  myFile = SD.open("log.csv", FILE_WRITE);  
+  myFile = SD.open(logName, FILE_WRITE);  
+*/
 
-  // if the file opened okay, write to it:
+  // create a new file
+  for (uint8_t i = 0; i < 100; i++)
+  {
+    logName[5] = i/10 + '0';
+    logName[6] = i%10 + '0';
+    if (!SD.exists(logName))
+    {
+      // only open a new file if it doesn't exist
+      myFile = SD.open(logName, FILE_WRITE); 
+      break;  // leave the loop!
+    }
+  }
+
+
+  // if the file opened okay, write to it
   if (myFile)
   {
-    //Serial.print("Writing to log.csv...");
+    //Serial.print("Writing to log...");
     myFile.print("speed; avgSpeed; rotations S; cadence; avgCadence; rotations C; rideTime; movingTime; temperature;");
     myFile.println();
 
@@ -156,14 +217,13 @@ void setup()
     myFile.close();   
   }   
 
-*/
  
   // TIMER SETUP - the timer interrupt allows precise timed measurements of the reed switch
-  //for more info about configuration of arduino timers see http://arduino.cc/playground/Code/Timer1
+  // for more info about configuration of arduino timers see http://arduino.cc/playground/Code/Timer1
 
-  cli(); //stop interrupts
+  cli(); // stop interrupts
 
-  //set timer1 interrupt at 1kHz
+  // set timer1 interrupt at 1kHz
   TCCR1A = 0; // set entire TCCR1A register to 0
   TCCR1B = 0; // same for TCCR1B
   TCNT1  = 0;
@@ -208,6 +268,8 @@ ISR(TIMER1_COMPA_vect)
       // min time between pulses has passed
       kph = (36*float(circumference))/float(speedTimer); // calculate kilometers per hour
 
+      digitalWrite(sLed, HIGH);   // turn the LED on (HIGH is the voltage level)
+
       // reset speedTimer      
       speedTimer = 0;
 
@@ -230,6 +292,7 @@ ISR(TIMER1_COMPA_vect)
       {// don't let speedReedCounter go negative
         speedReedCounter -= 1; // decrement speedReedCounter
       }
+
     }
   }
 
@@ -256,7 +319,7 @@ ISR(TIMER1_COMPA_vect)
     speedTimer += 1; // increment speedTimer
   } 
 
-
+digitalWrite(sLed, LOW);   // turn the LED on (HIGH is the voltage level)
 
   // CADENCE
   //////////
@@ -273,6 +336,8 @@ ISR(TIMER1_COMPA_vect)
       // calculate rotations per minute 
       cadence = float(60000)/float(cadenceTimer);
 
+      digitalWrite(cLed, HIGH);   // turn the LED on (HIGH is the voltage level)
+
       // reset timer
       cadenceTimer = 0;
 
@@ -288,8 +353,10 @@ ISR(TIMER1_COMPA_vect)
       {// don't let cadenceReedCounter go negative
 
         // decrement cadenceReedCounter
-        cadenceReedCounter -= 1;        
+        cadenceReedCounter -= 1;    
       }
+
+      digitalWrite(cLed, LOW);   // turn the LED on (HIGH is the voltage level)
     }
   }
 
@@ -431,7 +498,10 @@ void loop()
     tempSum += temperature;
     
     // save to log
-    saveToLog();
+    //saveToLog();
+
+    // one more loop
+    loopCounter += 1;
   }
 
 
@@ -483,7 +553,7 @@ void loop()
   temperature = getTemp();
   
   // calulate the avgTemp
-  avgTemp = tempSum/(float)rideTime;
+  avgTemp = tempSum/(float)loopCounter;
 
   // verifies if this is the highest temperature recorded
   if(temperature > maxTemp)
@@ -625,7 +695,7 @@ void saveToLog()
   
   // open the file. note that only one file can be open at a time,
   // so you have to close this one before opening another.
-  myFile = SD.open("log.csv", FILE_WRITE);  
+  myFile = SD.open(logName, FILE_WRITE);  
 
   // if the file opened okay, write to it:
   if (myFile)
