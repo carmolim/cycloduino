@@ -21,7 +21,6 @@
 
   - create a file name with date and time - I'll need a DS1302 or DS1307
   - think is going to be easier to just add a sequencial number and make a verification if the file name already exists
-  - use EEPROM as a cache to record fewer times in the SD? Make sense?
  
  SPEED
  /////
@@ -38,14 +37,20 @@
  OK - max cadence
  OK - average cadenc
  
- */
 
- /*
- git
- Better temperature average
-Incremental naming of the log
-Logo image
-Add some LEDs for debuging
+ CALORIES
+ ////////
+
+ develop an algorithm tha uses these data to calculate in real time the
+ CALORIES comsumption
+ 
+ age
+ heart rate
+ weight
+ height
+ moving time
+ cadence
+
  */
 
 
@@ -59,16 +64,16 @@ Add some LEDs for debuging
 // SENSORS
 //////////
 
-#define speedReed           A0                // speed reed switch
-#define cadenceReed         A1                // cadence reed switch
-int tempSensor            = 2;                // DS18S20 Signal pin on digital 2
+const int speedReed        = A0;               // speed reed switch
+const int cadenceReed      = A1;               // cadence reed switch
+const int tempSensor       = 2;                // DS18S20 Signal pin on digital 2
 
 
 // DEBUG
 ////////
 
-int sLed                   = 51;               // speed reed LED - UV 
-int cLed                   = 53;               // cadence reed LED - YELLOW
+const int sLed             = 51;               // speed reed LED - UV 
+const int cLed             = 53;               // cadence reed LED - YELLOW
 
 
 // LOG
@@ -103,12 +108,12 @@ float distance            = 0.00;             // total distance of the ride in K
 
 long speedTimer           = 0;                 // time between one full rotation (in ms)
 long speedNumberSamples   = 0;                 // total of revolutions made by the front wheel
-float speedSamplesSum     = 0;                 // sum of all the speeds collected
-float circumference       = 210;               // lenght of the wheel
+float speedSamplesSum     = 0.00;              // sum of all the speeds collected
+float circumference       = 210.0;             // lenght of the wheel
 float kph                 = 0.00;              // speed in kph
 float mph                 = 0.00;              // speed in mph
-float topSpeed            = 0;                 // top speed of the ride
-float avgSpeed            = 0;                 // average speed of the ride
+float topSpeed            = 0.00;              // top speed of the ride
+float avgSpeed            = 0.00;              // average speed of the ride
 int speedReedVal          = 0;                 // ?? stores if the switch is open or closed // change to boolean?
 int speedReedCounter      = 0;                 // ??
 
@@ -118,10 +123,10 @@ int speedReedCounter      = 0;                 // ??
 
 long cadenceTimer         = 0;                 // time between one full rotation (in ms)
 long cadenceNumberSamples = 0;                 // total of revolutions made by the front wheel
-float cadenceSamplesSum   = 0;                 // sum of all the speeds collected
+float cadenceSamplesSum   = 0.00;              // sum of all the speeds collected
 float cadence             = 0.00;              // actual cadence
-float avgCadence          = 0;                 // average cadence of the ride
-float topCadence          = 0;                 // top cadence fo the ride
+float avgCadence          = 0.00;              // average cadence of the ride
+float topCadence          = 0.00;              // top cadence fo the ride
 int cadenceReedVal        = 0;                 // stores if the switch is open or closed // change to boolean?
 int cadenceReedCounter    = 0;                 // ??
 
@@ -135,7 +140,7 @@ float maxTemp            = 0.00;               // stores the maximum temperature
 float minTemp            = 100.00;             // stores the minimum temperature of the ride
 float avgTemp            = 0.00;               // stores the average temp of the ride
 float tempSum            = 0.00;               // sum of all the temperature reads
-int tempCount            = 0;                  // number of samples
+
 
 void setup()
 {
@@ -145,6 +150,7 @@ void setup()
   // Note that even if it's not used as the CS pin, the hardware SS pin 
   // (10 on most Arduino boards, 53 on the Mega) must be left as an output 
   // or the SD library functions will not work. 
+
   pinMode(53, OUTPUT);                         //
   pinMode(speedReed, INPUT);                   // speed input
   pinMode(sLed, OUTPUT);                       // speed LED
@@ -268,7 +274,8 @@ ISR(TIMER1_COMPA_vect)
       // min time between pulses has passed
       kph = (36*float(circumference))/float(speedTimer); // calculate kilometers per hour
 
-      digitalWrite(sLed, HIGH);   // turn the LED on (HIGH is the voltage level)
+      // turn the LED on (HIGH is the voltage level)
+      digitalWrite(sLed, HIGH);   
 
       // reset speedTimer      
       speedTimer = 0;
@@ -319,7 +326,8 @@ ISR(TIMER1_COMPA_vect)
     speedTimer += 1; // increment speedTimer
   } 
 
-digitalWrite(sLed, LOW);   // turn the LED on (HIGH is the voltage level)
+// turn the LED off (LOW is the voltage level)
+digitalWrite(sLed, LOW);   
 
   // CADENCE
   //////////
@@ -336,7 +344,8 @@ digitalWrite(sLed, LOW);   // turn the LED on (HIGH is the voltage level)
       // calculate rotations per minute 
       cadence = float(60000)/float(cadenceTimer);
 
-      digitalWrite(cLed, HIGH);   // turn the LED on (HIGH is the voltage level)
+      // turn the LED on (HIGH is the voltage level)
+      digitalWrite(cLed, HIGH);   
 
       // reset timer
       cadenceTimer = 0;
@@ -356,7 +365,8 @@ digitalWrite(sLed, LOW);   // turn the LED on (HIGH is the voltage level)
         cadenceReedCounter -= 1;    
       }
 
-      digitalWrite(cLed, LOW);   // turn the LED on (HIGH is the voltage level)
+      // turn the LED off (LOW is the voltage level)
+      digitalWrite(cLed, LOW);
     }
   }
 
@@ -509,7 +519,7 @@ void loop()
   ///////////
   
   // Ride distance
-  distance = circumference * (float)speedNumberSamples / 100000;     // calculate distance in Km (1000 m)  
+  distance = circumference * (float) speedNumberSamples / 100000;     // calculate distance in Km (1000 m)  
 
 
   // SPEED
@@ -523,7 +533,7 @@ void loop()
 
   // average speed
   speedSamplesSum += kph;                                // add the new calculate kph                                     
-  avgSpeed = speedSamplesSum/(float)movingTime;          // calculate average speed
+  avgSpeed = speedSamplesSum / (float) movingTime;       // calculate average speed
 
   // print kph once a second
   displayKMH();
@@ -540,7 +550,7 @@ void loop()
 
   // average cadence 
   cadenceSamplesSum += cadence;                          // add the new calculate cadence
-  avgCadence = cadenceSamplesSum/(float)movingTime;      // calculate average cadence
+  avgCadence = cadenceSamplesSum / (float) movingTime;   // calculate average cadence
 
   // print cadence once a second
   displayCadence();
@@ -553,7 +563,7 @@ void loop()
   temperature = getTemp();
   
   // calulate the avgTemp
-  avgTemp = tempSum/(float)loopCounter;
+  avgTemp = tempSum / (float) loopCounter;
 
   // verifies if this is the highest temperature recorded
   if(temperature > maxTemp)
