@@ -41,15 +41,12 @@
  CALORIES
  ////////
 
- develop an algorithm tha uses these data to calculate in real time the
- CALORIES comsumption
- 
- age
- heart rate
- weight
- height
- moving time
- cadence
+ The Journal of Sports Sciences provides a calorie expenditure formula for each gender.
+
+ Men: Calories Burned = [(Age x 0.2017) + (Weight x 0.09036) + (Heart Rate x 0.6309) -- 55.0969] x Time / 4.184
+ Women: Calories Burned = [(Age x 0.074) -- (Weight x 0.05741) + (Heart Rate x 0.4472) -- 20.4022] x Time / 4.184.
+
+ Read more: http://www.livestrong.com/article/221621-formula-for-calories-burned-during-exercise/#ixzz2HWlKgfgJ
 
  */
 
@@ -82,6 +79,28 @@ const int cLed             = 53;               // cadence reed LED - YELLOW
 File myFile;                                  // object to handle with the file in the SD
 String logLine;                               // stores each log line before it is recorded in th SD
 char logName[]            = "RIDE_00.csv";    // create an array that contains the name of our file.
+
+
+// USER INFO
+////////////
+
+float weight              = 77.4;             // weight in Kg
+int age                   = 24;               // age in years of the user
+
+
+// HEART RATE
+/////////////
+
+float heartRate           = 0.00;             // current bpm
+float avgHeartRate        = 0.00;             // average bpm
+float maxHeartRate        = 0.00;             // max bpm
+float minHeartRate        = 0.00;             // min bpm
+
+
+// CALORIES
+///////////
+
+float caloriesBurned      = 0.00;             // total calories burned
 
 
 // TOTAL MEASURES
@@ -222,6 +241,11 @@ void setup()
     // close the file:
     myFile.close();   
   }   
+
+  // WEIGHT
+
+  // convert Kg to Lbs
+  weight = weight * 2.20462262184877580723; 
 
  
   // TIMER SETUP - the timer interrupt allows precise timed measurements of the reed switch
@@ -513,6 +537,12 @@ void loop()
     // one more loop
     loopCounter += 1;
   }
+
+  
+  // CALORIES
+  ///////////
+
+  caloriesBurned = [(age * 0.2017) + (weight * 0.09036) + (heartRate * 0.6309) - 55.0969] * (movingTime / 60) / 4.184;
 
 
   // DISTANCE
