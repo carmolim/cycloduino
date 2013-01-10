@@ -542,7 +542,7 @@ void loop()
   // CALORIES
   ///////////
 
-  caloriesBurned = [(age * 0.2017) + (weight * 0.09036) + (heartRate * 0.6309) - 55.0969] * (movingTime / 60) / 4.184;
+  caloriesBurned = ((age * 0.2017) + (weight * 0.09036) + (heartRate * 0.6309) - 55.0969) * (movingTime / 60) / 4.184;
 
 
   // DISTANCE
