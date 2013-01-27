@@ -7,18 +7,18 @@ What will this include:
 
 ##Speed
 
- * Current speed
- * Average speed
- * Maximum speed
- * Trip distance
+ * Current speed - ok
+ * Average speed - ok
+ * Maximum speed - ok
+ * Trip distance - ok
  * Odometer
 
 
 ##Cadence
  
- * Current cadence 
- * Average cadence 
- * Top cadence 
+ * Current cadence - ok
+ * Average cadence - ok
+ * Top cadence - ok 
  * Cadence zones
 
 
@@ -32,17 +32,17 @@ What will this include:
 
 ##Temperature functions
  
- * Current temperature 
- * Minimum temperature 
- * Maximum temperature 
- * Average temperature
+ * Current temperature - ok 
+ * Minimum temperature - ok 
+ * Maximum temperature - ok 
+ * Average temperature - ok
 
 
 ##Time functions
  
  * Total moving time 
- * Trip moving time 
- * Trip time 
+ * Trip moving time - ok 
+ * Trip time - ok 
  * Time (12/24 h) 
  * Stopwatch 
  * Countdown timer
