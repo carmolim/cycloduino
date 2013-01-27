@@ -43,10 +43,30 @@
 
  The Journal of Sports Sciences provides a calorie expenditure formula for each gender.
 
- Men: Calories Burned = [(Age x 0.2017) + (Weight x 0.09036) + (Heart Rate x 0.6309) -- 55.0969] x Time / 4.184
- Women: Calories Burned = [(Age x 0.074) -- (Weight x 0.05741) + (Heart Rate x 0.4472) -- 20.4022] x Time / 4.184.
+ Men: Calories Burned = ((Age x 0.2017) + (Weight x 0.09036) + (Heart Rate x 0.6309) - 55.0969) x Time / 4.184
+ Women: Calories Burned = ((Age x 0.074) -- (Weight x 0.05741) + (Heart Rate x 0.4472) - 20.4022) x Time / 4.184.
 
  Read more: http://www.livestrong.com/article/221621-formula-for-calories-burned-during-exercise/#ixzz2HWlKgfgJ
+
+
+ Male: ((-55.0969 + (0.6309 x HR) + (0.1988 x W) + (0.2017 x A))/4.184) x 60 x T
+ Female: ((-20.4022 + (0.4472 x HR) - (0.1263 x W) + (0.074 x A))/4.184) x 60 x T
+ 
+ where:
+ HR = Heart rate (in beats/minute) 
+ W = Weight (in kilograms) 
+ A = Age (in years) 
+ T = Exercise duration time (in hours)
+
+ other ref: http://www.shapesense.com/fitness-exercise/calculators/heart-rate-based-calorie-burn-calculator.aspx
+
+
+ HEART RATE
+ //////////
+
+ Equation for Determination of Maximum Heart Rate Based on Age
+ Maximum Heart Rate (beats/minute) = 208 - (0.7 x age)
+
 
  */
 
@@ -54,8 +74,15 @@
 // LIBRARIES
 ////////////
 
+#include <PCD8544.h>
 #include <OneWire.h>
 #include <SD.h>
+
+
+// LCD
+//////
+
+static PCD8544 lcd;                            // LCD
 
 
 // SENSORS
@@ -64,6 +91,8 @@
 const int speedReed        = A0;               // speed reed switch
 const int cadenceReed      = A1;               // cadence reed switch
 const int tempSensor       = 2;                // DS18S20 Signal pin on digital 2
+
+
 
 
 // DEBUG
@@ -175,6 +204,11 @@ void setup()
   pinMode(sLed, OUTPUT);                       // speed LED
   pinMode(cadenceReed, INPUT);                 // cadence input
   pinMode(cLed, OUTPUT);                       // cadence LED
+
+  // LCD
+
+  // PCD8544-compatible displays may have a different resolution...
+  lcd.begin(84, 48); 
 
 
 
@@ -542,7 +576,7 @@ void loop()
   // CALORIES
   ///////////
 
-  caloriesBurned = ((age * 0.2017) + (weight * 0.09036) + (heartRate * 0.6309) - 55.0969) * (movingTime / 60) / 4.184;
+  caloriesBurned = (( (float) age * 0.2017) + (weight * 0.09036) + (heartRate * 0.6309) - 55.0969) * (movingTime / 60) / 4.184;
 
 
   // DISTANCE
@@ -640,6 +674,36 @@ void loop()
 */
 
   Serial.println(); // jump to the next line
+
+
+  // LCD
+  //////
+
+  // show speed in the lcd
+  lcd.setCursor(0, 0);
+  lcd.print("speed: ");
+  lcd.setCursor(8, 0);
+  lcd.print(kph, DEC);
+
+
+  // show avgSpeed in the lcd
+  lcd.setCursor(0, 1);
+  lcd.print("avg speed: ");
+  lcd.setCursor(12, 1);
+  lcd.print(avgSpeed, DEC);
+
+  // show cadence in the lcd
+  lcd.setCursor(0, 2);
+  lcd.print("cadence: ");
+  lcd.setCursor(10, 2);
+  lcd.print(avgSpeed, DEC);
+
+
+  // show temp in the lcd
+  lcd.setCursor(0, 3);
+  lcd.print("temp: ");
+  lcd.setCursor(7, 3);
+  lcd.print(temperature, DEC); 
 
   delay(1000); // waits for 1s for the next loop
 
