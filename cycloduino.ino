@@ -87,7 +87,7 @@ Adafruit_PCD8544 display = Adafruit_PCD8544(3, 4, 5, 7, 6);
 
 const int buttonPin        = 8;                // the number of the pushbutton pin
 const int ledPin           = 13;               // the number of the LED pin
-int screen                 = 0;                // variable for reading the pushbutton status
+int screen                 = 6;                // variable for reading the pushbutton status
 int buttonState            = 0;                // variable for reading the pushbutton status
 
 
@@ -143,7 +143,7 @@ float caloriesBurned      = 0.00;             // total calories burned
 /////////////////
 
 float odometer            = 0;                // total distante
-int maxReedCounter        = 300;              // min time (in ms) of one rotation (for debouncing)
+int maxReedCounter        = 80;               // min time (in ms) of one rotation (for debouncing)
 int loopCounter           = 0;                // how many times the loop run before the ride started
 
 
@@ -506,7 +506,7 @@ digitalWrite(sLed, LOW);
     screen += 1; 
   } 
 
-  if(screen > 5)
+  if(screen > 6)
   {
     screen = 0;
   }
@@ -601,7 +601,7 @@ void loop()
     tempSum += temperature;
     
     // save to log
-    //saveToLog();
+    saveToLog();
 
     // one more loop
     loopCounter += 1;
@@ -797,7 +797,35 @@ void loop()
     display.display(); 
   }
 
- display.clearDisplay();
+  // screen 6 = summary
+  else if(screen == 6)
+  {
+    display.setTextColor(BLACK);
+    display.setCursor(0,0);
+    display.setTextSize(1);
+
+    display.print("speed:");
+    display.println(kph, 2);
+
+    display.print("avgS:");
+    display.println(avgSpeed, 2); 
+
+    display.print("rpm:");
+    display.println(cadence, 1);
+
+    display.print("temp:");
+    display.println(temperature, 2);
+
+    display.print("moving:");
+    display.println(printTime(movingTime));
+
+    display.display(); 
+  }
+
+
+
+  // clears the display for the next cycle
+  display.clearDisplay();
 
   delay(1000); // waits for 1s for the next loop
 
