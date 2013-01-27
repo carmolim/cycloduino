@@ -74,15 +74,23 @@
 // LIBRARIES
 ////////////
 
-#include <PCD8544.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_PCD8544.h>
 #include <OneWire.h>
 #include <SD.h>
 
 
-// LCD
-//////
+// INTERFACE
+////////////
 
-static PCD8544 lcd;                            // LCD
+Adafruit_PCD8544 display = Adafruit_PCD8544(3, 4, 5, 7, 6);
+
+const int buttonPin        = 8;                // the number of the pushbutton pin
+const int ledPin           = 13;               // the number of the LED pin
+int screen                 = 0;                // variable for reading the pushbutton status
+int buttonState            = 0;                // variable for reading the pushbutton status
+
+
 
 
 // SENSORS
@@ -91,7 +99,6 @@ static PCD8544 lcd;                            // LCD
 const int speedReed        = A0;               // speed reed switch
 const int cadenceReed      = A1;               // cadence reed switch
 const int tempSensor       = 2;                // DS18S20 Signal pin on digital 2
-
 
 
 
@@ -205,10 +212,18 @@ void setup()
   pinMode(cadenceReed, INPUT);                 // cadence input
   pinMode(cLed, OUTPUT);                       // cadence LED
 
+  // initialize the pushbutton pin as an input:
+  pinMode(buttonPin, INPUT);   
+
   // LCD
 
-  // PCD8544-compatible displays may have a different resolution...
-  lcd.begin(84, 48); 
+
+  // init done
+  display.begin();   
+
+  // you can change the contrast around to adapt the display
+  // for the best viewing!
+  display.setContrast(50);
 
 
 
@@ -477,7 +492,27 @@ digitalWrite(sLed, LOW);
   // increments 1 every cicle
   millisCount += 1;
 
-}
+    // BUTTON
+  /////////
+
+  buttonState = digitalRead(buttonPin); 
+
+  // check if the pushbutton is pressed.
+  // if it is, the buttonState is HIGH:
+  if (buttonState == HIGH)
+  {     
+    // turn LED on:    
+    digitalWrite(ledPin, HIGH);  
+    screen += 1; 
+  } 
+
+  if(screen > 5)
+  {
+    screen = 0;
+  }
+
+
+} // end of timer
 
 // method to display the speed data
 void displayKMH()
@@ -659,6 +694,10 @@ void loop()
   Serial.print(printTime(rideTime));
   Serial.print(" | ");
 
+  Serial.print("screen: ");
+  Serial.print(screen);
+  Serial.print(" | ");
+
 /*
  Serial.print("speedReedCounter: ");
  Serial.print(speedReedCounter);
@@ -679,31 +718,86 @@ void loop()
   // LCD
   //////
 
-  // show speed in the lcd
-  lcd.setCursor(0, 0);
-  lcd.print("speed: ");
-  lcd.setCursor(8, 0);
-  lcd.print(kph, DEC);
+  // screen 0 = speed
+  if(screen == 0)
+  {
+    display.setTextColor(BLACK);
+    display.setCursor(0,0);
+    display.setTextSize(1);
+    display.println("speed");
+    display.println();
+    display.setTextSize(2);
+    display.println(kph, 2);
+    display.display(); 
+  }
+
+  // screen 1 = avgSpeed
+  else if(screen == 1)
+  {
+    display.setTextColor(BLACK);
+    display.setCursor(0,0);
+    display.setTextSize(1);
+    display.println("avgSpeed");
+    display.println();
+    display.setTextSize(2);
+    display.println(avgSpeed, 2);
+    display.display(); 
+  }
+
+  // screen 2 = cadence
+  else if(screen == 2)
+  {  
+    display.setTextColor(BLACK);
+    display.setCursor(0,0);
+    display.setTextSize(1);
+    display.println("cadence");
+    display.println();
+    display.setTextSize(2);
+    display.println(cadence, 2);
+    display.display(); 
+  }
+
+  // screen 3 = avgCadence
+  else if(screen == 3)
+  {
+    display.setTextColor(BLACK);
+    display.setCursor(0,0);
+    display.setTextSize(1);
+    display.println("avgCadence");
+    display.println();
+    display.setTextSize(2);
+    display.println(avgCadence, 2);
+    display.display(); 
+  }
 
 
-  // show avgSpeed in the lcd
-  lcd.setCursor(0, 1);
-  lcd.print("avg speed: ");
-  lcd.setCursor(12, 1);
-  lcd.print(avgSpeed, DEC);
+  // screen 4 = temperature
+  else if(screen == 4)
+  {
+    display.setTextColor(BLACK);
+    display.setCursor(0,0);
+    display.setTextSize(1);
+    display.println("temperature");
+    display.println();
+    display.setTextSize(2);
+    display.println(temperature, 2);
+    display.display(); 
+  }
 
-  // show cadence in the lcd
-  lcd.setCursor(0, 2);
-  lcd.print("cadence: ");
-  lcd.setCursor(10, 2);
-  lcd.print(avgSpeed, DEC);
+  // screen 5 = avgTemperature
+  else if(screen == 5)
+  {
+    display.setTextColor(BLACK);
+    display.setCursor(0,0);
+    display.setTextSize(1);
+    display.println("avgTemperature");
+    display.println();
+    display.setTextSize(2);
+    display.println(avgTemp, 2);
+    display.display(); 
+  }
 
-
-  // show temp in the lcd
-  lcd.setCursor(0, 3);
-  lcd.print("temp: ");
-  lcd.setCursor(7, 3);
-  lcd.print(temperature, DEC); 
+ display.clearDisplay();
 
   delay(1000); // waits for 1s for the next loop
 
