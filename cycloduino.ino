@@ -15,12 +15,17 @@
 
 /*
  TODO
+
+ - evitar leituras erradas quando o ima estiver passando com baixa velocidade ou parar na frente do REED
+ - porque a leitura da cadência não está fazendo com que inicie a contagem do movingTime?
+
  
  LOG
  /// 
 
   - create a file name with date and time - I'll need a DS1302 or DS1307
   - think is going to be easier to just add a sequencial number and make a verification if the file name already exists
+
  
  SPEED
  /////
@@ -35,7 +40,7 @@
  
  OK - how to calculate cadence
  OK - max cadence
- OK - average cadenc
+ OK - average cadence
  
 
  CALORIES
@@ -83,14 +88,31 @@
 // INTERFACE
 ////////////
 
+// pin 7 - Serial clock out (SCLK)
+// pin 6 - Serial data out (DIN)
+// pin 5 - Data/Command select (D/C)
+// pin 4 - LCD chip select (CS)
+// pin 3 - LCD reset (RST)
+
 Adafruit_PCD8544 display = Adafruit_PCD8544(3, 4, 5, 7, 6);
 
 const int buttonPin        = 8;                // the number of the pushbutton pin
 const int ledPin           = 13;               // the number of the LED pin
-int screen                 = 6;                // variable for reading the pushbutton status
+const int graphSteps       = 42;               // number of lines used for build the graph
+int screen                 = 7;                // variable for reading the pushbutton status
 int buttonState            = 0;                // variable for reading the pushbutton status
+int graphPosition          = 0;                // stores the actual position in the array
+int speedGraph[graphSteps];                    // stores the last 42 speed reads to draw the speed graphic
 
 
+//CYCLES
+////////
+
+const int oneSecCycle      = 1000;             // 1 second
+unsigned long before1Sec   = 0; 
+
+const int buttonDebounce   = 200;              // 500 milisegundos
+unsigned long beforeButton = 0; 
 
 
 // SENSORS
@@ -99,14 +121,6 @@ int buttonState            = 0;                // variable for reading the pushb
 const int speedReed        = A0;               // speed reed switch
 const int cadenceReed      = A1;               // cadence reed switch
 const int tempSensor       = 2;                // DS18S20 Signal pin on digital 2
-
-
-
-// DEBUG
-////////
-
-const int sLed             = 51;               // speed reed LED - UV 
-const int cLed             = 53;               // cadence reed LED - YELLOW
 
 
 // LOG
@@ -120,8 +134,8 @@ char logName[]            = "RIDE_00.csv";    // create an array that contains t
 // USER INFO
 ////////////
 
-float weight              = 77.4;             // weight in Kg
-int age                   = 24;               // age in years of the user
+const int age              = 24;               // age in years of the user
+float weight               = 76.5;             // weight in Kg
 
 
 // HEART RATE
@@ -142,20 +156,20 @@ float caloriesBurned      = 0.00;             // total calories burned
 // TOTAL MEASURES
 /////////////////
 
+const int maxReedCounter  = 80;               // min time (in ms) of one rotation (for debouncing)
 float odometer            = 0;                // total distante
-int maxReedCounter        = 80;               // min time (in ms) of one rotation (for debouncing)
 int loopCounter           = 0;                // how many times the loop run before the ride started
 
 
 // PER RIDE
 ///////////
 
-boolean rideStarted       = false;            // if the bike is moving = true
-boolean moving            = false;            // if the bike is moving = true
 long rideTime             = 0;                // total time of the ride
 long movingTime           = 0;                // only the moving time
 long millisCount          = 0;                // stores the number of cicles runned in the interrupt
-float distance            = 0.00;             // total distance of the ride in Km
+float rideDistance        = 0.00;             // total distance of the ride in Km
+boolean rideStarted       = false;            // if the bike is moving = true
+boolean moving            = false;            // if the bike is moving = true
 
 
 // SPEED VARIBALES
@@ -197,26 +211,35 @@ float avgTemp            = 0.00;               // stores the average temp of the
 float tempSum            = 0.00;               // sum of all the temperature reads
 
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// SETUP
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 void setup()
 {
-  speedReedCounter = maxReedCounter;
+  speedReedCounter = maxReedCounter;      // ?
+  cadenceReedCounter = maxReedCounter;    // ?
 
   // On the Ethernet Shield, CS is pin 4. It's set as an output by default.
   // Note that even if it's not used as the CS pin, the hardware SS pin 
   // (10 on most Arduino boards, 53 on the Mega) must be left as an output 
   // or the SD library functions will not work. 
 
-  pinMode(53, OUTPUT);                         //
-  pinMode(speedReed, INPUT);                   // speed input
-  pinMode(sLed, OUTPUT);                       // speed LED
-  pinMode(cadenceReed, INPUT);                 // cadence input
-  pinMode(cLed, OUTPUT);                       // cadence LED
+  // speed input
+  pinMode(speedReed, INPUT);
 
-  // initialize the pushbutton pin as an input:
+  // cadence input                   
+  pinMode(cadenceReed, INPUT); 
+
+  // pushbutton input:
   pinMode(buttonPin, INPUT);   
 
   // LCD
-
 
   // init done
   display.begin();   
@@ -225,6 +248,12 @@ void setup()
   // for the best viewing!
   display.setContrast(50);
 
+
+  // iniciates the array
+  for (int i = 0; i < graphSteps; i++)
+  {      
+    speedGraph[i] = 0;     
+  }
 
 
   // SD
@@ -328,9 +357,18 @@ void setup()
 }// setup end
 
 
-ISR(TIMER1_COMPA_vect)
-{// Interrupt at freq of 1kHz to measure reed switch
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// TIMER
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// Interrupt at freq of 1000 Hz to measure reed switch
+ISR(TIMER1_COMPA_vect)
+{
 
   //SPEED
   ///////
@@ -346,10 +384,7 @@ ISR(TIMER1_COMPA_vect)
     {
       // min time between pulses has passed
       kph = (36*float(circumference))/float(speedTimer); // calculate kilometers per hour
-
-      // turn the LED on (HIGH is the voltage level)
-      digitalWrite(sLed, HIGH);   
-
+  
       // reset speedTimer      
       speedTimer = 0;
 
@@ -359,7 +394,7 @@ ISR(TIMER1_COMPA_vect)
       // increase number of samples by 1 - number of wheel rotations ajust the debouncer??
       speedNumberSamples++;  
 
-      // starts the timer
+      // starts the chronometer
       rideStarted = true;
 
       // the wheel is spinning
@@ -369,10 +404,10 @@ ISR(TIMER1_COMPA_vect)
     else
     {
       if (speedReedCounter > 0)
-      {// don't let speedReedCounter go negative
+      {
+        // don't let speedReedCounter go negative
         speedReedCounter -= 1; // decrement speedReedCounter
       }
-
     }
   }
 
@@ -380,7 +415,8 @@ ISR(TIMER1_COMPA_vect)
   {
     // if reed switch is open
     if (speedReedCounter > 0)
-    {// don't let speedReedCounter go negative
+    {
+      // don't let speedReedCounter go negative
       speedReedCounter -= 1; // decrement speedReedCounter
     }
   }
@@ -399,8 +435,6 @@ ISR(TIMER1_COMPA_vect)
     speedTimer += 1; // increment speedTimer
   } 
 
-// turn the LED off (LOW is the voltage level)
-digitalWrite(sLed, LOW);   
 
   // CADENCE
   //////////
@@ -417,9 +451,6 @@ digitalWrite(sLed, LOW);
       // calculate rotations per minute 
       cadence = float(60000)/float(cadenceTimer);
 
-      // turn the LED on (HIGH is the voltage level)
-      digitalWrite(cLed, HIGH);   
-
       // reset timer
       cadenceTimer = 0;
 
@@ -427,8 +458,15 @@ digitalWrite(sLed, LOW);
       cadenceReedCounter = maxReedCounter;
 
       // increase number of samples by 1      
-      cadenceNumberSamples++;                                   
+      cadenceNumberSamples++;  
+
+      // starts the chronometer
+      rideStarted = true;
+
+      // the wheel is spinning
+      moving = true;                                 
     }
+
     else
     {
       if(cadenceReedCounter > 0)
@@ -437,9 +475,6 @@ digitalWrite(sLed, LOW);
         // decrement cadenceReedCounter
         cadenceReedCounter -= 1;    
       }
-
-      // turn the LED off (LOW is the voltage level)
-      digitalWrite(cLed, LOW);
     }
   }
 
@@ -492,344 +527,315 @@ digitalWrite(sLed, LOW);
   // increments 1 every cicle
   millisCount += 1;
 
-    // BUTTON
+} // end of timer
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// LOOP
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+void loop()
+{  
+
+  // BUTTON
   /////////
+  
+  // button debounce
+  if (millis() - beforeButton > buttonDebounce)
+  {
+     if (digitalRead(buttonPin) == HIGH)
+     {
+       screen += 1;
+     }
+     beforeButton = millis();
+  }
 
-  buttonState = digitalRead(buttonPin); 
-
-  // check if the pushbutton is pressed.
-  // if it is, the buttonState is HIGH:
-  if (buttonState == HIGH)
-  {     
-    // turn LED on:    
-    digitalWrite(ledPin, HIGH);  
-    screen += 1; 
-  } 
-
-  if(screen > 6)
+  if(screen > 7)
   {
     screen = 0;
   }
 
 
-} // end of timer
+ 
+  // 1 sec cycle
+  if (millis() - before1Sec > oneSecCycle)
+  {
 
-// method to display the speed data
-void displayKMH()
-{
-  Serial.print("Speed: ");
-  Serial.print(kph);
-  Serial.print(" km/h");
-  Serial.print(" | ");
 
-  Serial.print("AvgSpeed: ");
-  Serial.print(avgSpeed);
-  Serial.print(" | ");
 
-  Serial.print("rotations S: ");
-  Serial.print(speedNumberSamples);
-  Serial.print(" | ");
-  
-/*
-  Serial.print("Avg Speed Mov Total: ");
-  Serial.print(speedSamplesSum/(float)rideTime);
-  Serial.print(" | ");
+    // if the ride started...
+    if(rideStarted)
+    {    
+      // adds the actual temperature read to de sum
+      tempSum += temperature;
+      
+      // save to log
+      saveToLog();
 
-  Serial.print("speedSum: ");
-  Serial.print(speedSamplesSum);
-  Serial.print(" | ");  
+      // one more loop
+      loopCounter += 1;  
+    }
 
-  Serial.print("Top Speed ");
-  Serial.print(topSpeed);
-  Serial.print(" | ");
-*/
+     
+    // adds the actual speed to the correct postion in the array
+    speedGraph[graphPosition] = (int) kph;
 
-} // end of displayKMH()
+    // update the array position
+    graphPosition += 1;    
 
-// method to display the cadence data
-void displayCadence()
-{
-  Serial.print("Cadence: ");
-  Serial.print(cadence);
-  Serial.print(" | ");
+    // if the graphPosition is at the end...
+    if(graphPosition >= graphSteps-1)
+    {
+      // runs tru the array changin the position of the values "to the left" 
+      for (int i = 0; i < graphSteps - 1; i++)
+      {
+        // current value equals to the next value
+        speedGraph[i] = speedGraph[i+1];    
+      }
 
-  Serial.print("AvgCadence: ");
-  Serial.print(speedSamplesSum/(float)movingTime);
-  Serial.print(" | ");
+      // now the graphPosition is always at the end
+      graphPosition = graphSteps - 1;
+    }
 
-  Serial.print("rotations C: ");
-  Serial.print(cadenceNumberSamples);
-  Serial.print(" | ");
-
-/*
-  Serial.print("Top Cadence: ");
-  Serial.print(topCadence);
-  Serial.print(" | ");
-*/
-
-} // end displayCadence()
-
-// method to display the temp data
-void displayTemp()
-{
     
-  Serial.print("Temp: ");
-  Serial.print(temperature);
-  Serial.print(" | ");
-  
-  Serial.print("Avg Temp: ");
-  Serial.print(avgTemp);
-  Serial.print(" | ");
-  
-  Serial.print("Max Temp: ");
-  Serial.print(maxTemp);
-  Serial.print(" | ");
-  
-  Serial.print("Min Temp: ");
-  Serial.print(minTemp);
-  Serial.print(" | ");
+    // CALORIES
+    ///////////
 
-} // end of display temp
+    caloriesBurned = (( (float) age * 0.2017) + (weight * 0.09036) + (heartRate * 0.6309) - 55.0969) * (movingTime / 60) / 4.184;
 
-void loop()
-{  
- 
-  // if the ride started...
-  if(rideStarted)
-  {    
-    // adds the actual temperature read to de sum
-    tempSum += temperature;
+
+    // DISTANCE
+    ///////////
     
-    // save to log
-    saveToLog();
-
-    // one more loop
-    loopCounter += 1;
-  }
-
-  
-  // CALORIES
-  ///////////
-
-  caloriesBurned = (( (float) age * 0.2017) + (weight * 0.09036) + (heartRate * 0.6309) - 55.0969) * (movingTime / 60) / 4.184;
+    // Ride distance
+    rideDistance = circumference * (float) speedNumberSamples / 100000;     // calculate distance in Km (1000 m)  
 
 
-  // DISTANCE
-  ///////////
-  
-  // Ride distance
-  distance = circumference * (float) speedNumberSamples / 100000;     // calculate distance in Km (1000 m)  
+    // SPEED
+    ////////
+
+    // verifies if this speed is the top speed of the ride
+    if(kph > topSpeed)
+    {
+      topSpeed = kph;
+    }      
+
+    // average speed
+    speedSamplesSum += kph;                                // add the new calculate kph                                     
+    avgSpeed = speedSamplesSum / (float) movingTime;       // calculate average speed
+
+    // print kph once a second
+    displayKMH();
 
 
-  // SPEED
-  ////////
+    // CADENCE
+    //////////
 
-  // verifies if this speed is the top speed of the ride
-  if(kph > topSpeed)
-  {
-    topSpeed = kph;
-  }      
+    // verifies if this cadence is the top cadence of the ride
+    if(cadence > topCadence)
+    {
+      topCadence = cadence;
+    }
 
-  // average speed
-  speedSamplesSum += kph;                                // add the new calculate kph                                     
-  avgSpeed = speedSamplesSum / (float) movingTime;       // calculate average speed
+    // average cadence 
+    cadenceSamplesSum += cadence;                          // add the new calculate cadence
+    avgCadence = cadenceSamplesSum / (float) movingTime;   // calculate average cadence
 
-  // print kph once a second
-  displayKMH();
+    // print cadence once a second
+    displayCadence();
+    
 
+    // TEMPERATURE
+    //////////////
 
-  // CADENCE
-  //////////
+    // update the actual temperature
+    temperature = getTemp();
+    
+    // calulate the avgTemp
+    avgTemp = tempSum / (float) loopCounter;
 
-  // verifies if this cadence is the top cadence of the ride
-  if(cadence > topCadence)
-  {
-    topCadence = cadence;
-  }
+    // verifies if this is the highest temperature recorded
+    if(temperature > maxTemp)
+    {
+      maxTemp = temperature;
+    }
 
-  // average cadence 
-  cadenceSamplesSum += cadence;                          // add the new calculate cadence
-  avgCadence = cadenceSamplesSum / (float) movingTime;   // calculate average cadence
+    // verifies if this is the lowest temperature recorded
+    if(temperature < minTemp)
+    {
+      minTemp = temperature;
+    }
 
-  // print cadence once a second
-  displayCadence();
-  
+    // print temperatures once a second
+    displayTemp();
 
-  // TEMPERATURE
-  //////////////
+    // display other data
+    diplayOhterData();
 
-  // update the actual temperature
-  temperature = getTemp();
-  
-  // calulate the avgTemp
-  avgTemp = tempSum / (float) loopCounter;
-
-  // verifies if this is the highest temperature recorded
-  if(temperature > maxTemp)
-  {
-    maxTemp = temperature;
-  }
-
-  // verifies if this is the lowest temperature recorded
-  if(temperature < minTemp)
-  {
-    minTemp = temperature;
-  }
-
-  // print temperatures once a second
-  displayTemp();
-
-  
-  // print other data
-
-  Serial.print("Distance: ");
-  Serial.print(distance);
-  Serial.print(" | ");
-
-  Serial.print("movingTime: ");
-  Serial.print(printTime(movingTime));
-  Serial.print(" | ");
-
-  Serial.print("time: ");
-  Serial.print(printTime(rideTime));
-  Serial.print(" | ");
-
-  Serial.print("screen: ");
-  Serial.print(screen);
-  Serial.print(" | ");
-
-/*
- Serial.print("speedReedCounter: ");
- Serial.print(speedReedCounter);
- Serial.print(" | ");
- 
- Serial.print("speedReedVal: ");
- Serial.print(speedReedVal);
- Serial.print(" | ");
- 
- Serial.print("speedTimer: ");
- Serial.print(speedTimer);
- Serial.print(" | ");
-*/
-
-  Serial.println(); // jump to the next line
+    Serial.println(); // jump to the next line
 
 
-  // LCD
-  //////
+    // LCD SCREENS
+    //////////////
 
-  // screen 0 = speed
-  if(screen == 0)
-  {
-    display.setTextColor(BLACK);
-    display.setCursor(0,0);
-    display.setTextSize(1);
-    display.println("speed");
-    display.println();
-    display.setTextSize(2);
-    display.println(kph, 2);
-    display.display(); 
-  }
+    // screen 0 = speed
+    if(screen == 0)
+    {
+      display.setTextColor(BLACK);
+      display.setCursor(0,0);
+      display.setTextSize(1);
+      display.println("1 - speed");
+      display.println();
+      display.setTextSize(2);
+      display.println(kph, 2);
+      // display everything on LCD
+      display.display();
+    }
 
-  // screen 1 = avgSpeed
-  else if(screen == 1)
-  {
-    display.setTextColor(BLACK);
-    display.setCursor(0,0);
-    display.setTextSize(1);
-    display.println("avgSpeed");
-    display.println();
-    display.setTextSize(2);
-    display.println(avgSpeed, 2);
-    display.display(); 
-  }
+    // screen 1 = avgSpeed
+    else if(screen == 1)
+    {
+      display.setTextColor(BLACK);
+      display.setCursor(0,0);
+      display.setTextSize(1);
+      display.println("2 - avgSpeed");
+      display.println();
+      display.setTextSize(2);
+      display.println(avgSpeed, 2);
+      // display everything on LCD
+      display.display();
+    }
 
-  // screen 2 = cadence
-  else if(screen == 2)
-  {  
-    display.setTextColor(BLACK);
-    display.setCursor(0,0);
-    display.setTextSize(1);
-    display.println("cadence");
-    display.println();
-    display.setTextSize(2);
-    display.println(cadence, 2);
-    display.display(); 
-  }
+    // screen 2 = cadence
+    else if(screen == 2)
+    {  
+      display.setTextColor(BLACK);
+      display.setCursor(0,0);
+      display.setTextSize(1);
+      display.println("3 - RPM");
+      display.println();
+      display.setTextSize(2);
+      display.println(cadence, 2);
+      // display everything on LCD
+      display.display();
+    }
 
-  // screen 3 = avgCadence
-  else if(screen == 3)
-  {
-    display.setTextColor(BLACK);
-    display.setCursor(0,0);
-    display.setTextSize(1);
-    display.println("avgCadence");
-    display.println();
-    display.setTextSize(2);
-    display.println(avgCadence, 2);
-    display.display(); 
-  }
+    // screen 3 = avgCadence
+    else if(screen == 3)
+    {
+      display.setTextColor(BLACK);
+      display.setCursor(0,0);
+      display.setTextSize(1);
+      display.println("4 - avgRPM");
+      display.println();
+      display.setTextSize(2);
+      display.println(avgCadence, 2);
+      // display everything on LCD
+      display.display();
+    }
 
+    // screen 4 = temperature
+    else if(screen == 4)
+    {
+      display.setTextColor(BLACK);
+      display.setCursor(0,0);
+      display.setTextSize(1);
+      display.println("5 - temp");
+      display.println();
+      display.setTextSize(2);
+      display.println(temperature, 2);
 
-  // screen 4 = temperature
-  else if(screen == 4)
-  {
-    display.setTextColor(BLACK);
-    display.setCursor(0,0);
-    display.setTextSize(1);
-    display.println("temperature");
-    display.println();
-    display.setTextSize(2);
-    display.println(temperature, 2);
-    display.display(); 
-  }
+      // display everything on LCD
+      display.display();
+    }
 
-  // screen 5 = avgTemperature
-  else if(screen == 5)
-  {
-    display.setTextColor(BLACK);
-    display.setCursor(0,0);
-    display.setTextSize(1);
-    display.println("avgTemperature");
-    display.println();
-    display.setTextSize(2);
-    display.println(avgTemp, 2);
-    display.display(); 
-  }
+    // screen 5 = avgTemperature
+    else if(screen == 5)
+    {
+      display.setTextColor(BLACK);
+      display.setCursor(0,0);
+      display.setTextSize(1);
+      display.println("6 - avgTemp");
+      display.println();
+      display.setTextSize(2);
+      display.println(avgTemp, 2);
 
-  // screen 6 = summary
-  else if(screen == 6)
-  {
-    display.setTextColor(BLACK);
-    display.setCursor(0,0);
-    display.setTextSize(1);
+      // display everything on LCD
+      display.display();
+    }
 
-    display.print("speed:");
-    display.println(kph, 2);
+    // screen 6 = summary
+    else if(screen == 6)
+    {
+      display.setTextColor(BLACK);
+      display.setCursor(0,0);
+      display.setTextSize(1);
 
-    display.print("avgS:");
-    display.println(avgSpeed, 2); 
+      display.print("speed:");
+      display.println(kph, 2);
 
-    display.print("rpm:");
-    display.println(cadence, 1);
+      display.print("avgS:");
+      display.println(avgSpeed, 2); 
 
-    display.print("temp:");
-    display.println(temperature, 2);
+      display.print("rpm:");
+      display.println(cadence, 1);
 
-    display.print("moving:");
-    display.println(printTime(movingTime));
+      display.print("temp:");
+      display.println(temperature, 2);
 
-    display.display(); 
-  }
+      display.print("moving:");
+      display.println(printTime(movingTime));
+      
+      // display everything on LCD
+      display.display(); 
+    }
 
+    // screen 7 = speedGraph
+    else if(screen == 7)
+    {
+      display.setTextColor(BLACK);
+      display.setCursor(0,0);
+      display.setTextSize(1);
+      display.print("sGraph:");
+      display.print(kph, 2);  
+    
+      // show the axis scale?
+      const int topMargin = 20;
+      float height = 0.00; 
 
+      for (int i = 0; i < graphSteps; i++)
+      {
+        // map the value to the correct interval in display
+        height = (int) map(speedGraph[i], 0, topSpeed, 48, topMargin);
+
+        // create the line
+        display.drawLine(i*2, 48, i*2, height, BLACK); // ok
+      }
+      
+      // display everything on LCD
+      display.display(); 
+    } 
+    //isto corre de segundo a segundo... 
+    before1Sec = millis();    
+  }// end of onSecCycle
 
   // clears the display for the next cycle
   display.clearDisplay();
-
-  delay(1000); // waits for 1s for the next loop
-
 }// end of loop
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// METHODS
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 // return a readeable format of time
@@ -854,7 +860,6 @@ String printTime(long t)
 
   dtostrf(s, 1, 0, temp);      // convert float second to string and add to temp array
   time += temp;                // concatenate the second in the string time
-
 
   return time;                 // return time in this format: 0:0:0
 
@@ -987,3 +992,125 @@ float getTemp()
 
   return TemperatureSum;
 } // end of getTemp()
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// DISPLAY SERIAL MONITOR
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// method to display the speed data
+void displayKMH()
+{
+  Serial.print("Speed: ");
+  Serial.print(kph);
+  Serial.print(" km/h");
+  Serial.print(" | ");
+
+  Serial.print("AvgSpeed: ");
+  Serial.print(avgSpeed);
+  Serial.print(" | ");
+
+  Serial.print("rotations S: ");
+  Serial.print(speedNumberSamples);
+  Serial.print(" | ");
+  
+/*
+  Serial.print("Avg Speed Mov Total: ");
+  Serial.print(speedSamplesSum/(float)rideTime);
+  Serial.print(" | ");
+
+  Serial.print("speedSum: ");
+  Serial.print(speedSamplesSum);
+  Serial.print(" | ");  
+
+  Serial.print("Top Speed ");
+  Serial.print(topSpeed);
+  Serial.print(" | ");
+*/
+
+} // end of displayKMH()
+
+// method to display the cadence data
+void displayCadence()
+{
+  Serial.print("Cadence: ");
+  Serial.print(cadence);
+  Serial.print(" | ");
+
+  Serial.print("AvgCadence: ");
+  Serial.print(speedSamplesSum/(float)movingTime);
+  Serial.print(" | ");
+
+  Serial.print("rotations C: ");
+  Serial.print(cadenceNumberSamples);
+  Serial.print(" | ");
+
+/*
+  Serial.print("Top Cadence: ");
+  Serial.print(topCadence);
+  Serial.print(" | ");
+*/
+
+} // end displayCadence()
+
+// method to display the temp data
+void displayTemp()
+{
+    
+  Serial.print("Temp: ");
+  Serial.print(temperature);
+  Serial.print(" | ");
+  
+  Serial.print("Avg Temp: ");
+  Serial.print(avgTemp);
+  Serial.print(" | ");
+  
+  Serial.print("Max Temp: ");
+  Serial.print(maxTemp);
+  Serial.print(" | ");
+  
+  Serial.print("Min Temp: ");
+  Serial.print(minTemp);
+  Serial.print(" | ");
+
+} // end of display temp
+
+
+// print other data
+void diplayOhterData()
+{
+  Serial.print("Distance: ");
+  Serial.print(rideDistance);
+  Serial.print(" | ");
+
+  Serial.print("movingTime: ");
+  Serial.print(printTime(movingTime));
+  Serial.print(" | ");
+
+  Serial.print("time: ");
+  Serial.print(printTime(rideTime));
+  Serial.print(" | ");
+
+  Serial.print("screen: ");
+  Serial.print(screen);
+  Serial.print(" | ");
+
+/*
+ Serial.print("speedReedCounter: ");
+ Serial.print(speedReedCounter);
+ Serial.print(" | ");
+ 
+ Serial.print("speedReedVal: ");
+ Serial.print(speedReedVal);
+ Serial.print(" | ");
+ 
+ Serial.print("speedTimer: ");
+ Serial.print(speedTimer);
+ Serial.print(" | ");
+*/
+}
