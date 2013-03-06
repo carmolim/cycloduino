@@ -130,7 +130,7 @@ int lastAltitude           = 0;              // stores the last altitude value
 int totalAscent            = 0;              // sum of all ascents
 int maxAltitude            = 0;              // higher altitude in the ride
 int minAltitude            = 900;            // lowest altitude in the ride
-int filterAltitude         = 5;              // diference between altitude and last altitude
+int filterAltitude         = 1;              // diference between altitude and last altitude
 
 
 // LOG
@@ -231,6 +231,9 @@ float tempSum            = 0.00;               // sum of all the temperature rea
 
 void setup()
 {
+
+  // BAROMETER
+
   // initializate the BMP085
   if (!bmp.begin())
   {
@@ -240,7 +243,8 @@ void setup()
 
   speedReedCounter = maxReedCounter;      // ?
   cadenceReedCounter = maxReedCounter;    // ?
-  minAltitude = bmp.readAltitude(101500);
+  minAltitude = bmp.readAltitude(101500);       // initiates withe the actual altitude
+  lastAltitude = bmp.readAltitude(101500);      // initiates withe the actual altitude
 
   // On the Ethernet Shield, CS is pin 4. It's set as an output by default.
   // Note that even if it's not used as the CS pin, the hardware SS pin 
@@ -900,10 +904,10 @@ void loop()
     } 
 
 
+    // isto corre de segundo a segundo... 
+    before1Sec = millis();   
 
 
-    //isto corre de segundo a segundo... 
-    before1Sec = millis();    
   }// end of onSecCycle
   
   // clears the display for the next cycle
