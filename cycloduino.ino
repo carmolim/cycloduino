@@ -2,7 +2,6 @@
 // Augusto Carmo (carmolim) 2012 - https://github.com/carmolim/cycloduino
 // Inspired on the work of Amanda Ghassae - http://www.instructables.com/id/Arduino-Bike-Speedometer/
 
-// TEMP - http://bildr.org/2011/07/ds18b20-arduino/
 
 /*
  * This program is free software; you can redistribute it and/or modify
@@ -78,11 +77,11 @@
 
 // LIBRARIES
 ////////////
-
-#include <Adafruit_GFX.h>
-#include <Adafruit_PCD8544.h>
-#include <OneWire.h>
-#include <SD.h>
+#include <Adafruit_BMP085.h>                    // Barometer
+#include <Adafruit_GFX.h>                       // LCD graphics
+#include <Adafruit_PCD8544.h>                   // LCD
+#include <Wire.h>
+//#include <SD.h>
 
 
 // INTERFACE
@@ -96,37 +95,48 @@
 
 Adafruit_PCD8544 display = Adafruit_PCD8544(3, 4, 5, 7, 6);
 
-const int buttonPin        = 8;                // the number of the pushbutton pin
-const int ledPin           = 13;               // the number of the LED pin
-const int graphSteps       = 42;               // number of lines used for build the graph
-int screen                 = 7;                // variable for reading the pushbutton status
-int buttonState            = 0;                // variable for reading the pushbutton status
-int graphPosition          = 0;                // stores the actual position in the array
-int speedGraph[graphSteps];                    // stores the last 42 speed reads to draw the speed graphic
+const int buttonPin        = 8;               // the number of the pushbutton pin
+const int ledPin           = 13;              // the number of the LED pin
+const int graphSteps       = 42;              // number of lines used for build the graph
+int screen                 = 7;               // variable for reading the pushbutton status
+int buttonState            = 0;               // variable for reading the pushbutton status
+int graphPosition          = 0;               // stores the actual position in the array
+int speedGraph[graphSteps];                   // stores the last 42 speed reads to draw the speed graphic
 
 
 //CYCLES
 ////////
 
-const int oneSecCycle      = 1000;             // 1 second
+const int oneSecCycle      = 1000;            // 1 second
 unsigned long before1Sec   = 0; 
 
-const int buttonDebounce   = 200;              // 500 milisegundos
+const int buttonDebounce   = 200;             // 500 milisegundos
 unsigned long beforeButton = 0; 
 
 
 // SENSORS
 //////////
 
-const int speedReed        = A0;               // speed reed switch
-const int cadenceReed      = A1;               // cadence reed switch
-const int tempSensor       = 2;                // DS18S20 Signal pin on digital 2
+const int speedReed        = A0;              // speed reed switch
+const int cadenceReed      = A1;              // cadence reed switch
+
+
+// BAROMETER
+////////////
+
+Adafruit_BMP085 bmp;                         // create a barometer object
+int altitude               = 0;              // stores the actual altitude in meters
+int lastAltitude           = 0;              // stores the last altitude value
+int totalAscent            = 0;              // sum of all ascents
+int maxAltitude            = 0;              // higher altitude in the ride
+int minAltitude            = 900;            // lowest altitude in the ride
+int filterAltitude         = 5;              // diference between altitude and last altitude
 
 
 // LOG
 //////
 
-File myFile;                                  // object to handle with the file in the SD
+//File myFile;                                  // object to handle with the file in the SD
 String logLine;                               // stores each log line before it is recorded in th SD
 char logName[]            = "RIDE_00.csv";    // create an array that contains the name of our file.
 
@@ -135,7 +145,7 @@ char logName[]            = "RIDE_00.csv";    // create an array that contains t
 ////////////
 
 const int age              = 24;               // age in years of the user
-float weight               = 76.5;             // weight in Kg
+float weight               = 77.5;             // weight in Kg
 
 
 // HEART RATE
@@ -203,7 +213,6 @@ int cadenceReedCounter    = 0;                 // ??
 // TEMPERATURE
 //////////////
 
-OneWire ds(tempSensor);                        // on digital pin 2
 float temperature        = 0.00;               // stores the temperature
 float maxTemp            = 0.00;               // stores the maximum temperature of the ride
 float minTemp            = 100.00;             // stores the minimum temperature of the ride
@@ -222,8 +231,16 @@ float tempSum            = 0.00;               // sum of all the temperature rea
 
 void setup()
 {
+  // initializate the BMP085
+  if (!bmp.begin())
+  {
+   Serial.println("Could not find a valid BMP085 sensor, check wiring!");
+   while (1) {}
+  }
+
   speedReedCounter = maxReedCounter;      // ?
   cadenceReedCounter = maxReedCounter;    // ?
+  minAltitude = bmp.readAltitude(101500);
 
   // On the Ethernet Shield, CS is pin 4. It's set as an output by default.
   // Note that even if it's not used as the CS pin, the hardware SS pin 
@@ -257,6 +274,8 @@ void setup()
 
 
   // SD
+  
+  /*
 
   if (!SD.begin(4))
   {
@@ -265,7 +284,7 @@ void setup()
   }
 
   Serial.println("initialization done."); 
-  
+  */
 /*
   TODO
 
@@ -295,6 +314,8 @@ void setup()
   myFile = SD.open(logName, FILE_WRITE);  
 */
 
+
+/*
   // create a new file
   for (uint8_t i = 0; i < 100; i++)
   {
@@ -318,7 +339,7 @@ void setup()
 
     // close the file:
     myFile.close();   
-  }   
+  }   */
 
   // WEIGHT
 
@@ -552,21 +573,17 @@ void loop()
      {
        screen += 1;
      }
-     beforeButton = millis();
+    beforeButton = millis();
   }
 
-  if(screen > 7)
+  if(screen > 9)
   {
     screen = 0;
   }
 
-
- 
   // 1 sec cycle
   if (millis() - before1Sec > oneSecCycle)
   {
-
-
 
     // if the ride started...
     if(rideStarted)
@@ -575,12 +592,11 @@ void loop()
       tempSum += temperature;
       
       // save to log
-      saveToLog();
+      //saveToLog();
 
       // one more loop
       loopCounter += 1;  
     }
-
      
     // adds the actual speed to the correct postion in the array
     speedGraph[graphPosition] = (int) kph;
@@ -654,7 +670,7 @@ void loop()
     //////////////
 
     // update the actual temperature
-    temperature = getTemp();
+    temperature = bmp.readTemperature();
     
     // calulate the avgTemp
     avgTemp = tempSum / (float) loopCounter;
@@ -678,6 +694,38 @@ void loop()
     diplayOhterData();
 
     Serial.println(); // jump to the next line
+
+
+    // ALTITUDE
+    ///////////
+
+    // you can get a more precise measurement of altitude
+    // if you know the current sea level pressure which will
+    // vary with weather and such. If it is 1015 millibars
+    // that is equal to 101500 Pascals.
+    altitude = bmp.readAltitude(101500);              
+
+    // verifies if this altitude can be summed to the totalAscent
+    if (altitude > lastAltitude && altitude - lastAltitude > filterAltitude)
+    {
+     totalAscent += altitude - lastAltitude;      
+    } 
+
+    // verifies if this is the highest altitude recorded
+    if (altitude > maxAltitude)
+    {
+      maxAltitude = altitude;                 
+    }           
+      
+    // verifies if this is the lowest altitude recorded
+    if (altitude < minAltitude)
+    {
+      minAltitude = altitude;                 
+    }
+
+    // updates the value of lastAltitude
+    lastAltitude = altitude;   
+
 
 
     // LCD SCREENS
@@ -713,8 +761,8 @@ void loop()
 
     // screen 2 = cadence
     else if(screen == 2)
-    {  
-      display.setTextColor(BLACK);
+      {  
+        display.setTextColor(BLACK);
       display.setCursor(0,0);
       display.setTextSize(1);
       display.println("3 - RPM");
@@ -820,10 +868,44 @@ void loop()
       // display everything on LCD
       display.display(); 
     } 
+
+    // screen 8 = altitude
+    else if(screen == 8)
+    {
+      display.setTextColor(BLACK);
+      display.setCursor(0,0);
+      display.setTextSize(1);
+      display.println("8 - altitude");
+      display.println();
+      display.setTextSize(2);
+      display.println(altitude);
+
+      // display everything on LCD
+      display.display(); 
+    }
+
+    // screen 9 = total ascent
+    else if(screen == 9)
+    {
+      display.setTextColor(BLACK);
+      display.setCursor(0,0);
+      display.setTextSize(1);
+      display.println("9 - ascent");
+      display.println();
+      display.setTextSize(2);
+      display.println(totalAscent);
+
+      // display everything on LCD
+      display.display(); 
+    } 
+
+
+
+
     //isto corre de segundo a segundo... 
     before1Sec = millis();    
   }// end of onSecCycle
-
+  
   // clears the display for the next cycle
   display.clearDisplay();
 }// end of loop
@@ -926,6 +1008,7 @@ void saveToLog()
   
   // open the file. note that only one file can be open at a time,
   // so you have to close this one before opening another.
+ /*
   myFile = SD.open(logName, FILE_WRITE);  
 
   // if the file opened okay, write to it:
@@ -937,61 +1020,11 @@ void saveToLog()
 
     // close the file:
     myFile.close();    
+    
   }   
+  */
 } // end of saveToLog
 
-
-// method to get temp method
-float getTemp()
-{
-  //returns the temperature from one DS18S20 in DEG Celsius
-
-  byte data[12];
-  byte addr[8];
-
-  if (!ds.search(addr))
-  {
-    // no more sensors on chain, reset search
-    ds.reset_search();
-    return -1000;
-  }
-
-  if (OneWire::crc8( addr, 7) != addr[7])
-  {
-    Serial.println("CRC is not valid!");
-    return -1000;
-  }
-
-  if ( addr[0] != 0x10 && addr[0] != 0x28)
-  {
-    Serial.print("Device is not recognized");
-    return -1000;
-  }
-
-  ds.reset();
-  ds.select(addr);
-  ds.write(0x44,1); // start conversion, with parasite power on at the end
-
-  byte present = ds.reset();
-  ds.select(addr);  
-  ds.write(0xBE); // Read Scratchpad
-
-
-  for (int i = 0; i < 9; i++)
-  { // we need 9 bytes
-    data[i] = ds.read();
-  }
-
-  ds.reset_search();
-
-  byte MSB = data[1];
-  byte LSB = data[0];
-
-  float tempRead = ((MSB << 8) | LSB); //using two's compliment
-  float TemperatureSum = tempRead / 16;
-
-  return TemperatureSum;
-} // end of getTemp()
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
