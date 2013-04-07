@@ -98,7 +98,7 @@ Adafruit_PCD8544 display = Adafruit_PCD8544(3, 4, 5, 7, 6);
 const int buttonPin        = 8;               // the number of the pushbutton pin
 const int ledPin           = 13;              // the number of the LED pin
 const int graphSteps       = 42;              // number of lines used for build the graph
-int screen                 = 7;               // variable for reading the pushbutton status
+int screen                 = 8;               // variable for reading the pushbutton status
 int buttonState            = 0;               // variable for reading the pushbutton status
 int graphPosition          = 0;               // stores the actual position in the array
 int speedGraph[graphSteps];                   // stores the last 42 speed reads to draw the speed graphic
@@ -125,12 +125,17 @@ const int cadenceReed      = A1;              // cadence reed switch
 ////////////
 
 Adafruit_BMP085 bmp;                         // create a barometer object
-int altitude               = 0;              // stores the actual altitude in meters
-int lastAltitude           = 0;              // stores the last altitude value
-int totalAscent            = 0;              // sum of all ascents
-int maxAltitude            = 0;              // higher altitude in the ride
-int minAltitude            = 900;            // lowest altitude in the ride
-int filterAltitude         = 1;              // diference between altitude and last altitude
+const int altSamplesAmount = 50;              // number of samples to make the altSamples
+int altSamplesStep         = 0;
+float altSamples[altSamplesAmount];          // stores the last readings
+float averageAltitude      = 0.0;
+float altitude             = 0.0;              // stores the actual altitude in meters
+float lastAltitude         = 0.0;              // stores the last altitude value
+float totalAscent          = 0.0;              // sum of all ascents
+float maxAltitude          = 0.0;              // higher altitude in the ride
+float minAltitude          = 900.0;            // lowest altitude in the ride
+const int filterAltitude   = 1;              // diference between altitude and last altitude
+ int altCalibration   = 101490;         // 
 
 
 // LOG
@@ -240,11 +245,21 @@ void setup()
    Serial.println("Could not find a valid BMP085 sensor, check wiring!");
    while (1) {}
   }
+  
+
+  for (int i = 0; i < altSamplesAmount; i++)
+  {
+    altSamples[i] = bmp.readAltitude(101490); 
+  }
+
+  minAltitude = bmp.readAltitude(101490);       // initiates withe the actual altitude
+  lastAltitude = bmp.readAltitude(101490);      // initiates withe the actual altitude
+  
+  
 
   speedReedCounter = maxReedCounter;      // ?
   cadenceReedCounter = maxReedCounter;    // ?
-  minAltitude = bmp.readAltitude(101500);       // initiates withe the actual altitude
-  lastAltitude = bmp.readAltitude(101500);      // initiates withe the actual altitude
+
 
   // On the Ethernet Shield, CS is pin 4. It's set as an output by default.
   // Note that even if it's not used as the CS pin, the hardware SS pin 
@@ -585,6 +600,47 @@ void loop()
     screen = 0;
   }
 
+  // BAROMETER AVERAGE
+  if (altSamplesStep < altSamplesAmount)
+  {
+
+    float altSum = 0.0;
+
+    // adds the actual altitude readin to the correct position in the array
+    altSamples[altSamplesStep] = bmp.readAltitude(101490);
+    
+    // sum all the values to make the average
+    for (int i = 0; i < altSamplesAmount; i++)
+    {
+      altSum += altSamples[i];
+      Serial.print(i);
+      Serial.print(" - ");
+      Serial.println(altSamples[i]);
+    }
+
+    Serial.println();
+    Serial.println(altSum);
+
+    // divided by the number of the samples to get the average
+    averageAltitude = altSum / altSamplesAmount;
+    Serial.println();
+    Serial.println(averageAltitude);
+
+    Serial.println();
+    Serial.println(altSamplesStep);
+
+    // add 1 to the step counter
+    altSamplesStep += 1;
+  }
+
+  // if the step count is in the last position...
+  if(altSamplesStep == altSamplesAmount)
+  {
+    // go to first postion
+    altSamplesStep = 0;
+  }
+
+
   // 1 sec cycle
   if (millis() - before1Sec > oneSecCycle)
   {
@@ -650,7 +706,7 @@ void loop()
     avgSpeed = speedSamplesSum / (float) movingTime;       // calculate average speed
 
     // print kph once a second
-    displayKMH();
+    //displayKMH();
 
 
     // CADENCE
@@ -667,7 +723,7 @@ void loop()
     avgCadence = cadenceSamplesSum / (float) movingTime;   // calculate average cadence
 
     // print cadence once a second
-    displayCadence();
+    //displayCadence();
     
 
     // TEMPERATURE
@@ -692,10 +748,10 @@ void loop()
     }
 
     // print temperatures once a second
-    displayTemp();
+   //displayTemp();
 
     // display other data
-    diplayOhterData();
+    //diplayOhterData();
 
     Serial.println(); // jump to the next line
 
@@ -707,28 +763,28 @@ void loop()
     // if you know the current sea level pressure which will
     // vary with weather and such. If it is 1015 millibars
     // that is equal to 101500 Pascals.
-    altitude = bmp.readAltitude(101500);              
+    altitude = bmp.readAltitude(101490);              
 
     // verifies if this altitude can be summed to the totalAscent
-    if (altitude > lastAltitude && altitude - lastAltitude > filterAltitude)
+    if (averageAltitude > lastAltitude && averageAltitude - lastAltitude > filterAltitude)
     {
-     totalAscent += altitude - lastAltitude;      
+     totalAscent += averageAltitude - lastAltitude;      
     } 
 
     // verifies if this is the highest altitude recorded
-    if (altitude > maxAltitude)
+    if (averageAltitude > maxAltitude)
     {
       maxAltitude = altitude;                 
     }           
       
     // verifies if this is the lowest altitude recorded
-    if (altitude < minAltitude)
+    if (averageAltitude < minAltitude)
     {
-      minAltitude = altitude;                 
+      minAltitude = averageAltitude;                 
     }
 
     // updates the value of lastAltitude
-    lastAltitude = altitude;   
+    lastAltitude = averageAltitude;   
 
 
 
@@ -879,10 +935,16 @@ void loop()
       display.setTextColor(BLACK);
       display.setCursor(0,0);
       display.setTextSize(1);
-      display.println("8 - altitude");
-      display.println();
-      display.setTextSize(2);
-      display.println(altitude);
+      display.print ("alt ");      
+      display.print(altitude);
+      display.println("m"); 
+      display.print("asc ");          
+      display.print(totalAscent);
+      display.println("m");
+      display.print("avg ");          
+      display.print(averageAltitude);
+      display.println("m");
+
 
       // display everything on LCD
       display.display(); 
@@ -1118,6 +1180,7 @@ void displayTemp()
 } // end of display temp
 
 
+
 // print other data
 void diplayOhterData()
 {
@@ -1151,3 +1214,4 @@ void diplayOhterData()
  Serial.print(" | ");
 */
 }
+
