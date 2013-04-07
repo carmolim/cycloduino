@@ -50,5 +50,5 @@ What will this include:
 
 ##Altitude measurement functions
  
- * Current altitude 
+ * Current altitude - ok
  * Ride total ascent
