@@ -77,8 +77,8 @@
 
 // LIBRARIES
 ////////////
-//#include <Adafruit_BMP085.h>                    // Barometer
-//#include <Wire.h>
+#include <Adafruit_BMP085.h>                    // Barometer
+#include <Wire.h>
 
 #include <Adafruit_GFX.h>                       // LCD graphics
 #include <Adafruit_PCD8544.h>                   // LCD
@@ -126,18 +126,18 @@ const int cadenceReed      = A1;              // cadence reed switch
 // BAROMETER
 ////////////
 
-//Adafruit_BMP085 bmp;                         // create a barometer object
-const int altSamplesAmount = 50;              // number of samples to make the altSamples
+Adafruit_BMP085 bmp;                           // create a barometer object
+const int altSamplesAmount = 50;               // number of samples to make the altSamples
 int altSamplesStep         = 0;
-float altSamples[altSamplesAmount];          // stores the last readings
+float altSamples[altSamplesAmount];            // stores the last readings
 float averageAltitude      = 0.0;
 float altitude             = 0.0;              // stores the actual altitude in meters
 float lastAltitude         = 0.0;              // stores the last altitude value
 float totalAscent          = 0.0;              // sum of all ascents
 float maxAltitude          = 0.0;              // higher altitude in the ride
 float minAltitude          = 900.0;            // lowest altitude in the ride
-const int filterAltitude   = 1;              // diference between altitude and last altitude
-int altCalibration   = 101490;         // 
+const int filterAltitude   = 1;                // diference between altitude and last altitude
+int altCalibration         = 101490;           // 
 
 
 // LOG
@@ -242,7 +242,7 @@ void setup()
   // BAROMETER
 
   // initializate the BMP085
-  /*
+  
   if (!bmp.begin())
    {
    Serial.println("Could not find a valid BMP085 sensor, check wiring!");
@@ -257,8 +257,7 @@ void setup()
    
    minAltitude = bmp.readAltitude(101490);       // initiates withe the actual altitude
    lastAltitude = bmp.readAltitude(101490);      // initiates withe the actual altitude
-   
-   */
+
 
   speedReedCounter = maxReedCounter;      // ?
   cadenceReedCounter = maxReedCounter;    // ?
