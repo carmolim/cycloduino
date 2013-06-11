@@ -14,17 +14,17 @@
 
 /*
  TODO
-
+ 
  - evitar leituras erradas quando o ima estiver passando com baixa velocidade ou parar na frente do REED
  - porque a leitura da cadência não está fazendo com que inicie a contagem do movingTime?
-
+ 
  
  LOG
  /// 
-
-  - create a file name with date and time - I'll need a DS1302 or DS1307
-  - think is going to be easier to just add a sequencial number and make a verification if the file name already exists
-
+ 
+ - create a file name with date and time - I'll need a DS1302 or DS1307
+ - think is going to be easier to just add a sequencial number and make a verification if the file name already exists
+ 
  
  SPEED
  /////
@@ -41,18 +41,18 @@
  OK - max cadence
  OK - average cadence
  
-
+ 
  CALORIES
  ////////
-
+ 
  The Journal of Sports Sciences provides a calorie expenditure formula for each gender.
-
+ 
  Men: Calories Burned = ((Age x 0.2017) + (Weight x 0.09036) + (Heart Rate x 0.6309) - 55.0969) x Time / 4.184
  Women: Calories Burned = ((Age x 0.074) -- (Weight x 0.05741) + (Heart Rate x 0.4472) - 20.4022) x Time / 4.184.
-
+ 
  Read more: http://www.livestrong.com/article/221621-formula-for-calories-burned-during-exercise/#ixzz2HWlKgfgJ
-
-
+ 
+ 
  Male: ((-55.0969 + (0.6309 x HR) + (0.1988 x W) + (0.2017 x A))/4.184) x 60 x T
  Female: ((-20.4022 + (0.4472 x HR) - (0.1263 x W) + (0.074 x A))/4.184) x 60 x T
  
@@ -61,26 +61,28 @@
  W = Weight (in kilograms) 
  A = Age (in years) 
  T = Exercise duration time (in hours)
-
+ 
  other ref: http://www.shapesense.com/fitness-exercise/calculators/heart-rate-based-calorie-burn-calculator.aspx
-
-
+ 
+ 
  HEART RATE
  //////////
-
+ 
  Equation for Determination of Maximum Heart Rate Based on Age
  Maximum Heart Rate (beats/minute) = 208 - (0.7 x age)
-
-
+ 
+ 
  */
 
 
 // LIBRARIES
 ////////////
-#include <Adafruit_BMP085.h>                    // Barometer
+//#include <Adafruit_BMP085.h>                    // Barometer
+//#include <Wire.h>
+
 #include <Adafruit_GFX.h>                       // LCD graphics
 #include <Adafruit_PCD8544.h>                   // LCD
-#include <Wire.h>
+
 //#include <SD.h>
 
 
@@ -124,7 +126,7 @@ const int cadenceReed      = A1;              // cadence reed switch
 // BAROMETER
 ////////////
 
-Adafruit_BMP085 bmp;                         // create a barometer object
+//Adafruit_BMP085 bmp;                         // create a barometer object
 const int altSamplesAmount = 50;              // number of samples to make the altSamples
 int altSamplesStep         = 0;
 float altSamples[altSamplesAmount];          // stores the last readings
@@ -135,7 +137,7 @@ float totalAscent          = 0.0;              // sum of all ascents
 float maxAltitude          = 0.0;              // higher altitude in the ride
 float minAltitude          = 900.0;            // lowest altitude in the ride
 const int filterAltitude   = 1;              // diference between altitude and last altitude
- int altCalibration   = 101490;         // 
+int altCalibration   = 101490;         // 
 
 
 // LOG
@@ -240,22 +242,23 @@ void setup()
   // BAROMETER
 
   // initializate the BMP085
+  /*
   if (!bmp.begin())
-  {
+   {
    Serial.println("Could not find a valid BMP085 sensor, check wiring!");
    while (1) {}
-  }
-  
-
-  for (int i = 0; i < altSamplesAmount; i++)
-  {
-    altSamples[i] = bmp.readAltitude(101490); 
-  }
-
-  minAltitude = bmp.readAltitude(101490);       // initiates withe the actual altitude
-  lastAltitude = bmp.readAltitude(101490);      // initiates withe the actual altitude
-  
-  
+   }
+   
+   
+   for (int i = 0; i < altSamplesAmount; i++)
+   {
+   altSamples[i] = bmp.readAltitude(101490); 
+   }
+   
+   minAltitude = bmp.readAltitude(101490);       // initiates withe the actual altitude
+   lastAltitude = bmp.readAltitude(101490);      // initiates withe the actual altitude
+   
+   */
 
   speedReedCounter = maxReedCounter;      // ?
   cadenceReedCounter = maxReedCounter;    // ?
@@ -282,7 +285,7 @@ void setup()
 
   // you can change the contrast around to adapt the display
   // for the best viewing!
-  display.setContrast(50);
+  display.setContrast(35);
 
 
   // iniciates the array
@@ -293,79 +296,79 @@ void setup()
 
 
   // SD
-  
+
   /*
 
-  if (!SD.begin(4))
-  {
-    Serial.println("initialization failed!");
-    return;
-  }
-
-  Serial.println("initialization done."); 
-  */
-/*
+   if (!SD.begin(4))
+   {
+   Serial.println("initialization failed!");
+   return;
+   }
+   
+   Serial.println("initialization done."); 
+   */
+  /*
   TODO
+   
+   1 - search if there is a filename that starts with 01
+   2 - if it finds a filename that starts with 01, find if there is a filename that starts with 02,03,04...
+   3 - after find the last log add 1 to logCount and start a new log with this number
+   
+   REF
+   http://arduino.cc/forum/index.php?topic=108264.0
+   http://arduino.cc/forum/index.php?PHPSESSID=a96c1ff6fa88ecd4d0d0094696a1edeb&/topic,105997.0.html
+   * - http://www.ladyada.net/make/logshield/lighttempwalkthru.html
+   
+   TEST
+   */
 
-  1 - search if there is a filename that starts with 01
-  2 - if it finds a filename that starts with 01, find if there is a filename that starts with 02,03,04...
-  3 - after find the last log add 1 to logCount and start a new log with this number
-
-  REF
-  http://arduino.cc/forum/index.php?topic=108264.0
-  http://arduino.cc/forum/index.php?PHPSESSID=a96c1ff6fa88ecd4d0d0094696a1edeb&/topic,105997.0.html
-  * - http://www.ladyada.net/make/logshield/lighttempwalkthru.html
-
-  TEST
-*/
-
-/*
+  /*
   // while the filename exists...
-  while(SD.exists(logName))
-  { 
-    logCount += 1;                 // adds 1 to the counter
-    logName[5] = logCount / 10 + '0';
-    logName[6] = logCount % 10 + '0';
-  }   
+   while(SD.exists(logName))
+   { 
+   logCount += 1;                 // adds 1 to the counter
+   logName[5] = logCount / 10 + '0';
+   logName[6] = logCount % 10 + '0';
+   }   
+   
+   // open the file. note that only one file can be open at a time,
+   // so you have to close this one before opening another.
+   myFile = SD.open(logName, FILE_WRITE);  
+   */
 
-  // open the file. note that only one file can be open at a time,
-  // so you have to close this one before opening another.
-  myFile = SD.open(logName, FILE_WRITE);  
-*/
 
-
-/*
+  /*
   // create a new file
-  for (uint8_t i = 0; i < 100; i++)
-  {
-    logName[5] = i/10 + '0';
-    logName[6] = i%10 + '0';
-    if (!SD.exists(logName))
-    {
-      // only open a new file if it doesn't exist
-      myFile = SD.open(logName, FILE_WRITE); 
-      break;  // leave the loop!
-    }
-  }
-
-
-  // if the file opened okay, write to it
-  if (myFile)
-  {
-    //Serial.print("Writing to log...");
-    myFile.print("speed; avgSpeed; rotations S; cadence; avgCadence; rotations C; rideTime; movingTime; temperature;");
-    myFile.println();
-
-    // close the file:
-    myFile.close();   
-  }   */
+   for (uint8_t i = 0; i < 100; i++)
+   {
+   logName[5] = i/10 + '0';
+   logName[6] = i%10 + '0';
+   if (!SD.exists(logName))
+   {
+   // only open a new file if it doesn't exist
+   myFile = SD.open(logName, FILE_WRITE); 
+   break;  // leave the loop!
+   }
+   }
+   
+   
+   // if the file opened okay, write to it
+   if (myFile)
+   {
+   //Serial.print("Writing to log...");
+   myFile.print("speed; avgSpeed; rotations S; cadence; avgCadence; rotations C; rideTime; movingTime; temperature;");
+   myFile.println();
+   
+   // close the file:
+   myFile.close();   
+   }   */
 
   // WEIGHT
 
   // convert Kg to Lbs
   weight = weight * 2.20462262184877580723; 
 
- 
+
   // TIMER SETUP - the timer interrupt allows precise timed measurements of the reed switch
   // for more info about configuration of arduino timers see http://arduino.cc/playground/Code/Timer1
 
@@ -424,8 +427,8 @@ ISR(TIMER1_COMPA_vect)
     {
       // min time between pulses has passed
       kph = (36*float(circumference))/float(speedTimer); // calculate kilometers per hour
-  
-      // reset speedTimer      
+
+        // reset speedTimer      
       speedTimer = 0;
 
       // reset speedReedCounter
@@ -552,14 +555,14 @@ ISR(TIMER1_COMPA_vect)
       // increments 1 once a second
       rideTime += 1;  
     }
-    
+
     // if the bike is moving...
     if(moving)
     {
       // increments 1 once a second
       movingTime += 1;
     }
-    
+
     // reset the counter
     millisCount = 0; 
   }
@@ -584,14 +587,14 @@ void loop()
 
   // BUTTON
   /////////
-  
+
   // button debounce
   if (millis() - beforeButton > buttonDebounce)
   {
-     if (digitalRead(buttonPin) == HIGH)
-     {
-       screen += 1;
-     }
+    if (digitalRead(buttonPin) == HIGH)
+    {
+      screen += 1;
+    }
     beforeButton = millis();
   }
 
@@ -599,47 +602,47 @@ void loop()
   {
     screen = 0;
   }
-
+  /*
   // BAROMETER AVERAGE
-  if (altSamplesStep < altSamplesAmount)
-  {
-
-    float altSum = 0.0;
-
-    // adds the actual altitude readin to the correct position in the array
-    altSamples[altSamplesStep] = bmp.readAltitude(101490);
-    
-    // sum all the values to make the average
-    for (int i = 0; i < altSamplesAmount; i++)
-    {
-      altSum += altSamples[i];
-      Serial.print(i);
-      Serial.print(" - ");
-      Serial.println(altSamples[i]);
-    }
-
-    Serial.println();
-    Serial.println(altSum);
-
-    // divided by the number of the samples to get the average
-    averageAltitude = altSum / altSamplesAmount;
-    Serial.println();
-    Serial.println(averageAltitude);
-
-    Serial.println();
-    Serial.println(altSamplesStep);
-
-    // add 1 to the step counter
-    altSamplesStep += 1;
-  }
-
-  // if the step count is in the last position...
-  if(altSamplesStep == altSamplesAmount)
-  {
-    // go to first postion
-    altSamplesStep = 0;
-  }
-
+   if (altSamplesStep < altSamplesAmount)
+   {
+   
+   float altSum = 0.0;
+   
+   // adds the actual altitude readin to the correct position in the array
+   altSamples[altSamplesStep] = bmp.readAltitude(101490);
+   
+   // sum all the values to make the average
+   for (int i = 0; i < altSamplesAmount; i++)
+   {
+   altSum += altSamples[i];
+   Serial.print(i);
+   Serial.print(" - ");
+   Serial.println(altSamples[i]);
+   }
+   
+   Serial.println();
+   Serial.println(altSum);
+   
+   // divided by the number of the samples to get the average
+   averageAltitude = altSum / altSamplesAmount;
+   Serial.println();
+   Serial.println(averageAltitude);
+   
+   Serial.println();
+   Serial.println(altSamplesStep);
+   
+   // add 1 to the step counter
+   altSamplesStep += 1;
+   }
+   
+   // if the step count is in the last position...
+   if(altSamplesStep == altSamplesAmount)
+   {
+   // go to first postion
+   altSamplesStep = 0;
+   }
+   */
 
   // 1 sec cycle
   if (millis() - before1Sec > oneSecCycle)
@@ -650,14 +653,14 @@ void loop()
     {    
       // adds the actual temperature read to de sum
       tempSum += temperature;
-      
+
       // save to log
       //saveToLog();
 
       // one more loop
       loopCounter += 1;  
     }
-     
+
     // adds the actual speed to the correct postion in the array
     speedGraph[graphPosition] = (int) kph;
 
@@ -678,7 +681,7 @@ void loop()
       graphPosition = graphSteps - 1;
     }
 
-    
+
     // CALORIES
     ///////////
 
@@ -687,7 +690,7 @@ void loop()
 
     // DISTANCE
     ///////////
-    
+
     // Ride distance
     rideDistance = circumference * (float) speedNumberSamples / 100000;     // calculate distance in Km (1000 m)  
 
@@ -706,7 +709,7 @@ void loop()
     avgSpeed = speedSamplesSum / (float) movingTime;       // calculate average speed
 
     // print kph once a second
-    //displayKMH();
+    displayKMH();
 
 
     // CADENCE
@@ -722,16 +725,16 @@ void loop()
     cadenceSamplesSum += cadence;                          // add the new calculate cadence
     avgCadence = cadenceSamplesSum / (float) movingTime;   // calculate average cadence
 
-    // print cadence once a second
-    //displayCadence();
-    
+      // print cadence once a second
+    displayCadence();
+
 
     // TEMPERATURE
     //////////////
-
+    /*
     // update the actual temperature
-    temperature = bmp.readTemperature();
-    
+     temperature = bmp.readTemperature();
+     */
     // calulate the avgTemp
     avgTemp = tempSum / (float) loopCounter;
 
@@ -748,7 +751,7 @@ void loop()
     }
 
     // print temperatures once a second
-   //displayTemp();
+    //displayTemp();
 
     // display other data
     //diplayOhterData();
@@ -758,38 +761,39 @@ void loop()
 
     // ALTITUDE
     ///////////
-
+    /*
     // you can get a more precise measurement of altitude
-    // if you know the current sea level pressure which will
-    // vary with weather and such. If it is 1015 millibars
-    // that is equal to 101500 Pascals.
-    altitude = bmp.readAltitude(101490);              
-
-    // verifies if this altitude can be summed to the totalAscent
-    if (averageAltitude > lastAltitude && averageAltitude - lastAltitude > filterAltitude)
-    {
+     // if you know the current sea level pressure which will
+     // vary with weather and such. If it is 1015 millibars
+     // that is equal to 101500 Pascals.
+     altitude = bmp.readAltitude(101490);              
+     
+     // verifies if this altitude can be summed to the totalAscent
+     if (averageAltitude > lastAltitude && averageAltitude - lastAltitude > filterAltitude)
+     {
      totalAscent += averageAltitude - lastAltitude;      
-    } 
-
-    // verifies if this is the highest altitude recorded
-    if (averageAltitude > maxAltitude)
-    {
-      maxAltitude = altitude;                 
-    }           
-      
-    // verifies if this is the lowest altitude recorded
-    if (averageAltitude < minAltitude)
-    {
-      minAltitude = averageAltitude;                 
-    }
-
-    // updates the value of lastAltitude
-    lastAltitude = averageAltitude;   
-
-
+     } 
+     
+     // verifies if this is the highest altitude recorded
+     if (averageAltitude > maxAltitude)
+     {
+     maxAltitude = altitude;                 
+     }           
+     
+     // verifies if this is the lowest altitude recorded
+     if (averageAltitude < minAltitude)
+     {
+     minAltitude = averageAltitude;                 
+     }
+     
+     // updates the value of lastAltitude
+     lastAltitude = averageAltitude;   
+     
+     */
 
     // LCD SCREENS
     //////////////
+
 
     // screen 0 = speed
     if(screen == 0)
@@ -821,8 +825,8 @@ void loop()
 
     // screen 2 = cadence
     else if(screen == 2)
-      {  
-        display.setTextColor(BLACK);
+    {  
+      display.setTextColor(BLACK);
       display.setCursor(0,0);
       display.setTextSize(1);
       display.println("3 - RPM");
@@ -898,7 +902,7 @@ void loop()
 
       display.print("moving:");
       display.println(printTime(movingTime));
-      
+
       // display everything on LCD
       display.display(); 
     }
@@ -911,7 +915,7 @@ void loop()
       display.setTextSize(1);
       display.print("sGraph:");
       display.print(kph, 2);  
-    
+
       // show the axis scale?
       const int topMargin = 20;
       float height = 0.00; 
@@ -924,7 +928,7 @@ void loop()
         // create the line
         display.drawLine(i*2, 48, i*2, height, BLACK); // ok
       }
-      
+
       // display everything on LCD
       display.display(); 
     } 
@@ -965,15 +969,15 @@ void loop()
       display.display(); 
     } 
 
-
     // isto corre de segundo a segundo... 
     before1Sec = millis();   
 
 
   }// end of onSecCycle
-  
+
   // clears the display for the next cycle
   display.clearDisplay();
+
 }// end of loop
 
 
@@ -1019,23 +1023,23 @@ void saveToLog()
 {
 
   // ("speed; avgSpeed; rotations S; cadence; avgCadence; rotations C; rideTime; movingTime; temperature;");
-  
+
   // holds temporary values
   char temp[55];
 
   // cleans logLine
   logLine = 0;
-  
+
   // add the current speed
   dtostrf(kph, 1, 2, temp);
   logLine += temp;
   logLine += "; ";
-  
+
   // adds average speed
   dtostrf(avgSpeed, 1, 2, temp);
   logLine += temp;
   logLine += "; ";
-  
+
   // adds the number of wheel rotations
   logLine += String(speedNumberSamples);
   logLine += "; "; 
@@ -1044,7 +1048,7 @@ void saveToLog()
   dtostrf(cadence, 1, 2, temp);      
   logLine += temp;
   logLine += "; ";
-  
+
   // adds average cadence
   dtostrf(avgCadence, 1, 2, temp);     
   logLine += temp;
@@ -1053,42 +1057,42 @@ void saveToLog()
   // adds number of pedal rotations
   logLine += String(cadenceNumberSamples);
   logLine += "; ";   
-  
+
   // ride total time
   logLine += String(rideTime);
   logLine += "; ";
-  
+
   // moving time
   logLine += String(movingTime);
   logLine += "; ";  
-  
+
   // adds temperature
   dtostrf(temperature, 1, 2, temp);
   logLine += temp;
   logLine += "; ";  
-  
+
   // adds average temperature
   dtostrf(avgTemp, 1, 2, temp);
   logLine += temp;
   logLine += "; ";
-  
+
   // open the file. note that only one file can be open at a time,
   // so you have to close this one before opening another.
- /*
+  /*
   myFile = SD.open(logName, FILE_WRITE);  
-
-  // if the file opened okay, write to it:
-  if (myFile)
-  {
-    //Serial.print("Writing to test.csv...");
-    myFile.print(logLine);
-    myFile.println();
-
-    // close the file:
-    myFile.close();    
-    
-  }   
-  */
+   
+   // if the file opened okay, write to it:
+   if (myFile)
+   {
+   //Serial.print("Writing to test.csv...");
+   myFile.print(logLine);
+   myFile.println();
+   
+   // close the file:
+   myFile.close();    
+   
+   }   
+   */
 } // end of saveToLog
 
 
@@ -1117,20 +1121,20 @@ void displayKMH()
   Serial.print("rotations S: ");
   Serial.print(speedNumberSamples);
   Serial.print(" | ");
-  
-/*
+
+  /*
   Serial.print("Avg Speed Mov Total: ");
-  Serial.print(speedSamplesSum/(float)rideTime);
-  Serial.print(" | ");
-
-  Serial.print("speedSum: ");
-  Serial.print(speedSamplesSum);
-  Serial.print(" | ");  
-
-  Serial.print("Top Speed ");
-  Serial.print(topSpeed);
-  Serial.print(" | ");
-*/
+   Serial.print(speedSamplesSum/(float)rideTime);
+   Serial.print(" | ");
+   
+   Serial.print("speedSum: ");
+   Serial.print(speedSamplesSum);
+   Serial.print(" | ");  
+   
+   Serial.print("Top Speed ");
+   Serial.print(topSpeed);
+   Serial.print(" | ");
+   */
 
 } // end of displayKMH()
 
@@ -1149,30 +1153,30 @@ void displayCadence()
   Serial.print(cadenceNumberSamples);
   Serial.print(" | ");
 
-/*
+  /*
   Serial.print("Top Cadence: ");
-  Serial.print(topCadence);
-  Serial.print(" | ");
-*/
+   Serial.print(topCadence);
+   Serial.print(" | ");
+   */
 
 } // end displayCadence()
 
 // method to display the temp data
 void displayTemp()
 {
-    
+
   Serial.print("Temp: ");
   Serial.print(temperature);
   Serial.print(" | ");
-  
+
   Serial.print("Avg Temp: ");
   Serial.print(avgTemp);
   Serial.print(" | ");
-  
+
   Serial.print("Max Temp: ");
   Serial.print(maxTemp);
   Serial.print(" | ");
-  
+
   Serial.print("Min Temp: ");
   Serial.print(minTemp);
   Serial.print(" | ");
@@ -1200,18 +1204,18 @@ void diplayOhterData()
   Serial.print(screen);
   Serial.print(" | ");
 
-/*
+  /*
  Serial.print("speedReedCounter: ");
- Serial.print(speedReedCounter);
- Serial.print(" | ");
- 
- Serial.print("speedReedVal: ");
- Serial.print(speedReedVal);
- Serial.print(" | ");
- 
- Serial.print("speedTimer: ");
- Serial.print(speedTimer);
- Serial.print(" | ");
-*/
+   Serial.print(speedReedCounter);
+   Serial.print(" | ");
+   
+   Serial.print("speedReedVal: ");
+   Serial.print(speedReedVal);
+   Serial.print(" | ");
+   
+   Serial.print("speedTimer: ");
+   Serial.print(speedTimer);
+   Serial.print(" | ");
+   */
 }
 
